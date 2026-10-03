@@ -115,6 +115,42 @@ body{background:var(--bg);color:var(--text);font-family:Georgia,'Times New Roman
 .btn-p{flex:1;background:var(--red);border:none;color:#fff;border-radius:9px;padding:10px;font-size:12px;cursor:pointer;font-family:Georgia,serif}
 .btn-s{background:var(--faint);border:1px solid rgba(255,255,255,.1);color:var(--sub);border-radius:9px;padding:10px 14px;font-size:12px;cursor:pointer}
 .footer{text-align:center;margin-top:8px;font-size:8px;color:#1e293b}
+/* v3: bandera, deshacer, historial, hojas */
+.co{display:inline-block;width:14px;height:10px;border-radius:2px;vertical-align:-1px;background:linear-gradient(#fcd116 0 50%,#003893 50% 75%,#ce1126 75%);box-shadow:0 0 0 .5px rgba(255,255,255,.18)}
+.day-icon .co{width:11px;height:8px;vertical-align:0}
+.day-cell{position:relative;-webkit-touch-callout:none}
+.pend-dot{position:absolute;top:3px;right:3px;width:4px;height:4px;border-radius:50%;background:#93c5fd}
+.history{margin:0 8px 10px;background:rgba(0,0,0,.2);border-radius:10px;padding:9px 11px;border:var(--bdr)}
+.log-row{display:grid;grid-template-columns:30px 44px 1fr auto;gap:6px;align-items:center;font-size:10px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.log-row:last-of-type{border-bottom:none}
+.log-d{font-family:monospace;color:var(--sub)}
+.log-t{font-size:10px}
+.log-ts{font-family:monospace;font-size:8px;color:var(--dim)}
+.log-dev{font-size:8px;color:#fbbf24}
+.log-more{margin-top:6px;background:none;border:none;color:#93c5fd;font-size:9px;cursor:pointer;padding:4px 0}
+.log-empty{font-size:10px;color:var(--dim);line-height:1.5}
+.badge{font-family:monospace;font-size:8px;padding:2px 6px;border-radius:99px;white-space:nowrap}
+.b-manual{background:rgba(148,163,184,.12);color:#94a3b8}
+.b-undo{background:rgba(226,198,122,.12);color:var(--gold)}
+.b-calendar{background:rgba(66,133,244,.15);color:#93c5fd}
+.b-ok{background:rgba(34,197,94,.14);color:#4ade80}
+.b-bad{background:rgba(248,113,113,.15);color:#f87171}
+.b-unk{background:rgba(251,191,36,.12);color:#fbbf24}
+.gcal-link{font-size:9px;color:#93c5fd;text-decoration:underline;cursor:pointer}
+.toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translate(-50%,160%);background:#1f2937;border:1px solid rgba(225,198,122,.25);border-radius:12px;padding:11px 12px 11px 14px;display:flex;align-items:center;gap:16px;font-size:12px;color:var(--text);box-shadow:0 10px 30px rgba(0,0,0,.6);transition:transform .2s ease-out;z-index:90;max-width:calc(100% - 24px);overflow:hidden}
+.toast.show{transform:translate(-50%,0)}
+.toast button{background:none;border:none;color:var(--gold);font-size:12px;font-weight:700;cursor:pointer;padding:4px 2px;font-family:Georgia,serif}
+.toast-bar{position:absolute;left:0;bottom:0;height:2px;width:100%;background:var(--gold);opacity:.6}
+@keyframes drain{from{width:100%}to{width:0}}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}.toast-bar{animation:none!important}}
+.sheet-btns{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.sheet-btns button{width:100%}
+.day-log{max-height:50vh;overflow-y:auto}
+.dl-row{padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.dl-ts{font-family:monospace;font-size:9px;color:var(--sub)}
+.dl-chg{font-size:12px;color:var(--text);margin-top:4px}
+.dl-meta{font-size:9px;color:var(--sub);margin-top:2px;line-height:1.4}
+button:focus-visible,.day-cell:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
 </style>
 </head>
 <body>
@@ -122,7 +158,7 @@ body{background:var(--bg);color:var(--text);font-family:Georgia,'Times New Roman
   <div class="brand">
     <div class="brand-tag">ScotiaTech · GBS</div>
     <div class="brand-title">Office Tracker</div>
-    <div class="brand-note">Festivos 🇨🇴 automáticos · Meta = 8 − semanas con festivo</div>
+    <div class="brand-note">Festivos <i class="co"></i> automáticos · Meta = 8 − semanas con festivo</div>
   </div>
   <div class="card">
     <div class="nav">
@@ -136,16 +172,26 @@ body{background:var(--bg);color:var(--text);font-family:Georgia,'Times New Roman
     <div class="day-hdrs" id="day-hdrs"></div>
     <div class="weeks" id="weeks"></div>
     <div class="breakdown" id="breakdown"></div>
+    <div class="history" id="history"></div>
     <div id="festivos"></div>
     <div class="gcal-bar" id="gcal-bar"></div>
     <div class="legend">
-      <div class="leg-item"><span>🇨🇴</span><span>Festivo (auto)</span></div>
+      <div class="leg-item"><i class="co"></i><span>Festivo (auto)</span></div>
       <div class="leg-item"><span>🏢</span><span>Fui a oficina</span></div>
       <div class="leg-item"><span>🏖️</span><span>Vacación extra</span></div>
+      <div class="leg-item"><span>👆</span><span>Mantén presionado: historial del día</span></div>
     </div>
   </div>
   <div class="footer">Meta = 8 − semanas con festivo/vacación · Solo cuentan días del mes visible · Datos en este dispositivo</div>
 </div>
+
+<!-- Deshacer -->
+<div class="toast" id="toast" role="status" aria-live="polite">
+  <span id="toast-txt"></span><button id="toast-undo">Deshacer</button><div class="toast-bar" id="toast-bar"></div>
+</div>
+
+<!-- Hoja genérica (aviso / historial de un día) -->
+<div class="modal-ov" id="sheet" style="display:none"><div class="modal" id="sheet-body"></div></div>
 
 <!-- Modal -->
 <div class="modal-ov" id="modal" style="display:none">
@@ -174,21 +220,37 @@ body{background:var(--bg);color:var(--text);font-family:Georgia,'Times New Roman
 // ═══════════════════════════════════════════════════════════
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
-const BASE=8, LS_DATA='ot-data-v2', LS_CID='ot-gcal-cid', LS_TOK='ot-gcal-token';
-const APP_ID='scotiatech-office-tracker';
-const SCOPE='https://www.googleapis.com/auth/calendar.events';
+const BASE=8, UNDO_MS=5000, HORIZON=21;            // HORIZON: días hacia adelante con avisos programados
+const LS_DATA='ot-data-v2', LS_CID='ot-gcal-cid', LS_TOK='ot-gcal-token', LS_CAL='ot-cal-id', LS_DEV='ot-dev';
+const APP_ID='scotiatech-office-tracker', CAL_NAME='Office Tracker', TZ='America/Bogota';
+const SCOPE='https://www.googleapis.com/auth/calendar.app.created';     // solo calendarios que crea esta app
+const LEGACY_SCOPE='https://www.googleapis.com/auth/calendar.events';   // solo para limpiar eventos de la v2
+const SLOTS=[
+  {id:'r10',h:10,m:0, label:'10:00 a. m.',title:'¿Vas a la oficina hoy?'},
+  {id:'r16',h:16,m:30,label:'4:30 p. m.', title:'¿Fuiste a la oficina hoy?'}
+];
+const APP_URL=location.origin+location.pathname;
 const MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DAYS=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+const DOW=['dom','lun','mar','mié','jue','vie','sáb'];
+const DOW_L=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+const FLAG='<i class="co" aria-label="Festivo Colombia"></i>';
+const TYPE_LBL={office:'🏢 Oficina',vacation:'🏖️ Día libre',null:'Vacío'};
+const TYPE_IC={office:'🏢',vacation:'🏖️',null:'∅'};
 
 function today(){ const d=new Date(); d.setHours(0,0,0,0); return d; }
-let now=today();   // se refresca al volver a la app y al cambiar de día
-const S={ year:now.getFullYear(), month:now.getMonth(), data:{}, evIds:{}, pending:{},
-          token:null, tokenExp:0, cid:null, syncing:0, authError:false };
+let now=today();
+const S={ year:now.getFullYear(), month:now.getMonth(),
+  data:{}, evIds:{}, pending:{}, log:[], rem:{}, nonces:{}, skip:{}, legacy:{},
+  token:null, tokenExp:0, cid:null, calId:null, calChecked:false, dev:null,
+  syncing:0, lastError:null, showAllLog:false };
 
 // ═══════════════════════════════════════════════════════════
-// DATE HELPERS
+// HELPERS
 // ═══════════════════════════════════════════════════════════
 const p2=n=>String(n).padStart(2,'0');
+const enc=encodeURIComponent;
+function rid(bytes){ const a=new Uint8Array(bytes); crypto.getRandomValues(a); return [...a].map(b=>b.toString(16).padStart(2,'0')).join(''); }
 function toKey(d){ return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`; }
 function fromKey(k){ const [y,m,d]=k.split('-').map(Number); return new Date(y,m-1,d); }
 function addD(d,n){ const r=new Date(d); r.setDate(r.getDate()+n); return r; }
@@ -196,6 +258,10 @@ function monday(d){ const r=new Date(d); r.setHours(0,0,0,0); const w=r.getDay()
 function nextMon(d){ const w=d.getDay(); return w===1?new Date(d):addD(d,w===0?1:8-w); }
 function isWeekend(d){ const w=d.getDay(); return w===0||w===6; }
 function inMonth(d,y,mo){ return d.getFullYear()===y&&d.getMonth()===mo; }
+function fmtDay(k){ const d=fromKey(k); return `${DOW[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3).toLowerCase()}`; }
+function fmtDayLong(k){ const d=fromKey(k); return `${DOW_L[d.getDay()]} ${d.getDate()} de ${MONTHS[d.getMonth()].toLowerCase()}`; }
+function fmtTs(ts){ const d=new Date(ts); return `${p2(d.getDate())}/${p2(d.getMonth()+1)} ${p2(d.getHours())}:${p2(d.getMinutes())}`; }
+const slotOf=id=>SLOTS.find(s=>s.id===id);
 
 // ═══════════════════════════════════════════════════════════
 // COLOMBIAN HOLIDAYS
@@ -227,10 +293,7 @@ function holidays(y){
 function getHol(d){ return holidays(d.getFullYear())[toKey(d)]||null; }
 
 // ═══════════════════════════════════════════════════════════
-// STATS
-// Regla de mes cruzado: cada semana se muestra completa, pero solo
-// cuentan los días que pertenecen al mes visible (visitas, festivos
-// y vacaciones). Así ningún día suma en dos meses a la vez.
+// STATS  (solo cuentan los días del mes visible)
 // ═══════════════════════════════════════════════════════════
 function weeks(y,mo){
   const last=new Date(y,mo+1,0),ws=[];
@@ -258,7 +321,6 @@ function stats(){
   const pct=target>0?Math.min(100,Math.round(visited/target*100)):100;
   const done=visited>=target;
   const active=ws.filter(w=>w.sun>=now);
-  // Lo que aún se puede sumar: cuota pendiente de cada semana, limitada por los días hábiles que quedan
   const canMax=active.reduce((s,w)=>s+Math.min(Math.max(0,w.quota-w.visited),w.openDays),0);
   const mHols=Object.entries(holidays(year)).filter(([k])=>k.startsWith(`${year}-${p2(month+1)}`)).sort();
   const upHols=mHols.map(([k,n])=>({date:fromKey(k),name:n})).filter(h=>h.date>now);
@@ -269,28 +331,37 @@ function stats(){
 // STORAGE
 // ═══════════════════════════════════════════════════════════
 function save(){
-  try{ localStorage.setItem(LS_DATA,JSON.stringify({data:S.data,evIds:S.evIds,pending:S.pending})); }catch(_){}
+  try{ localStorage.setItem(LS_DATA,JSON.stringify({v:3,data:S.data,evIds:S.evIds,pending:S.pending,log:S.log,
+    rem:S.rem,nonces:S.nonces,skip:S.skip,legacy:S.legacy})); }catch(_){}
 }
 function load(){
   try{
-    const r=localStorage.getItem(LS_DATA);
-    if(r){
-      const p=JSON.parse(r); S.data=p.data||{}; S.evIds=p.evIds||{};
-      if(p.pending) S.pending=p.pending;
-      else{ // migración desde v1: lo marcado sin evento en Calendar queda pendiente de subir
-        Object.keys(S.data).forEach(k=>{ if(!S.evIds[k]) S.pending[k]=true; });
+    const p=JSON.parse(localStorage.getItem(LS_DATA)||'null');
+    if(p){
+      S.data=p.data||{};
+      if(p.v===3){
+        Object.assign(S,{evIds:p.evIds||{},pending:p.pending||{},log:p.log||[],rem:p.rem||{},
+          nonces:p.nonces||{},skip:p.skip||{},legacy:p.legacy||{}});
+      }else{
+        // Migración desde v1/v2: los eventos viejos están en el calendario principal.
+        // Se guardan aparte para poder borrarlos, y todo lo local se sube al calendario nuevo.
+        S.legacy=p.evIds||{}; S.evIds={};
+        Object.keys(S.data).forEach(k=>{ S.pending[k]=true; });
       }
     }
   }catch(_){}
   S.cid=localStorage.getItem(LS_CID)||null;
+  S.calId=localStorage.getItem(LS_CAL)||null;
+  S.dev=localStorage.getItem(LS_DEV);
+  if(!S.dev){ S.dev=rid(2); localStorage.setItem(LS_DEV,S.dev); }
   try{
     const t=JSON.parse(localStorage.getItem(LS_TOK)||'null');
-    if(t&&t.exp>Date.now()){ S.token=t.token; S.tokenExp=t.exp; }
+    if(t&&t.exp>Date.now()&&t.scope===SCOPE){ S.token=t.token; S.tokenExp=t.exp; }
   }catch(_){}
 }
 function setToken(tok,expiresIn){
-  S.token=tok; S.tokenExp=Date.now()+(Math.max(120,expiresIn)-60)*1000; S.authError=false;
-  try{ localStorage.setItem(LS_TOK,JSON.stringify({token:tok,exp:S.tokenExp})); }catch(_){}
+  S.token=tok; S.tokenExp=Date.now()+(Math.max(120,expiresIn)-60)*1000;
+  try{ localStorage.setItem(LS_TOK,JSON.stringify({token:tok,exp:S.tokenExp,scope:SCOPE})); }catch(_){}
 }
 function clearToken(){ S.token=null; S.tokenExp=0; try{ localStorage.removeItem(LS_TOK); }catch(_){} }
 function hasToken(){
@@ -299,11 +370,39 @@ function hasToken(){
   return false;
 }
 const pendingCount=()=>Object.keys(S.pending).length;
+const online=()=>hasToken()&&!!S.calId;
+
+// ═══════════════════════════════════════════════════════════
+// AUDITORÍA: cada cambio queda con origen, hora, dispositivo y referencia
+// ═══════════════════════════════════════════════════════════
+function logChange(e){
+  const entry={id:rid(4),ts:Date.now(),dev:S.dev,from:null,to:null,...e};
+  S.log.push(entry);
+  if(S.log.length>1000) S.log.splice(0,S.log.length-1000);
+  return entry;
+}
+function srcBadge(e){
+  if(e.src==='manual')   return ['b-manual','Manual'];
+  if(e.src==='undo')     return ['b-undo','Deshecho'];
+  if(e.src==='calendar') return ['b-calendar','Calendar'];
+  if(e.src==='notif')    return e.ok==='ok'?['b-ok','Aviso ✓']:e.ok==='bad'?['b-bad','Aviso ⚠']:['b-unk','Aviso ?'];
+  return ['b-manual',e.src];
+}
+function srcText(e){
+  if(e.src==='manual')   return 'Manual (toque en la app)';
+  if(e.src==='undo')     return 'Deshecho';
+  if(e.src==='calendar') return 'Editado en Google Calendar';
+  if(e.src==='notif'){
+    const v=e.ok==='ok'?'verificado ✓':e.ok==='bad'?'⚠ el código no coincide con el aviso':'sin verificar';
+    return `Aviso de las ${slotOf(e.slot)?.label||'?'} · ${v}${e.ref?` · ref ${e.ref}`:''}${e.note?` · ${e.note}`:''}`;
+  }
+  return e.src;
+}
 
 // ═══════════════════════════════════════════════════════════
 // GOOGLE AUTH (GIS token client)
 // ═══════════════════════════════════════════════════════════
-let tokenClient=null, tokenClientCid=null;
+let tokenClient=null, tokenClientCid=null, legacyClient=null;
 
 function gisReady(){ return !!window.google?.accounts?.oauth2; }
 function whenGIS(){
@@ -314,22 +413,22 @@ function initGIS(){
   if(!S.cid||!gisReady()) return false;
   if(tokenClient&&tokenClientCid===S.cid) return true;
   tokenClient=google.accounts.oauth2.initTokenClient({
-    client_id:S.cid, scope:SCOPE,
+    client_id:S.cid, scope:SCOPE, include_granted_scopes:false,
     callback:r=>{
-      if(r.error){ S.authError=true; render(); return; }
-      setToken(r.access_token,+r.expires_in||3600);
-      syncMonth();
+      if(r.error){ S.lastError='Google no autorizó la conexión'; render(); return; }
+      setToken(r.access_token,+r.expires_in||3600); S.lastError=null;
+      syncAll();
     },
-    error_callback:()=>{ S.authError=true; render(); }
+    error_callback:e=>{ S.lastError=e?.type==='popup_closed'?null:'No se pudo abrir el inicio de sesión de Google'; render(); }
   });
-  tokenClientCid=S.cid;
+  tokenClientCid=S.cid; legacyClient=null;
   return true;
 }
 async function connect(){
   if(!S.cid){ showModal(); return; }
   if(!await whenGIS()){ alert('No se pudo cargar el inicio de sesión de Google. Revisa la conexión e inténtalo de nuevo.'); return; }
   initGIS();
-  tokenClient.requestAccessToken({prompt:''}); // solo pide consentimiento la primera vez
+  tokenClient.requestAccessToken({prompt:''});
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -344,105 +443,354 @@ async function gcal(method,path,body){
     headers:{'Authorization':`Bearer ${S.token}`,'Content-Type':'application/json'},
     body:body?JSON.stringify(body):undefined
   });
-  if(r.status===401){ clearToken(); S.authError=true; throw new AuthError('token vencido'); }
+  if(r.status===401){ clearToken(); throw new AuthError('token vencido'); }
   if(r.status===404||r.status===410) return {notFound:true};
   if(r.status===204) return {};
-  if(!r.ok) throw new Error(`GCal ${r.status}`);
+  if(!r.ok) throw new Error(`Google Calendar respondió ${r.status}`);
   return r.json();
 }
+const calPath=()=>`/calendars/${enc(S.calId)}`;
 
-function evBody(key,type){
-  return {
-    summary: type==='office'?'🏢 Oficina ScotiaTech':'🏖️ Día libre · ScotiaTech',
-    status:'confirmed',
-    start:{date:key}, end:{date:toKey(addD(fromKey(key),1))},
-    extendedProperties:{private:{appId:APP_ID,type}}
-  };
+async function listEvents(params){
+  const qs=Object.entries({singleEvents:'true',maxResults:'250',...params}).map(([k,v])=>`${k}=${enc(v)}`).join('&');
+  const items=[]; let pageToken='';
+  do{
+    const r=await gcal('GET',`${calPath()}/events?${qs}${pageToken?`&pageToken=${enc(pageToken)}`:''}`);
+    items.push(...(r?.items||[])); pageToken=r?.nextPageToken||'';
+  }while(pageToken);
+  return items;
+}
+async function delEvent(id){ await gcal('DELETE',`${calPath()}/events/${enc(id)}`); }
+
+// Calendario propio "Office Tracker": se crea una vez y se reutiliza
+async function ensureCalendar(){
+  if(S.calId&&S.calChecked) return;
+  if(S.calId){
+    const r=await gcal('GET',calPath());
+    if(!r?.notFound){ S.calChecked=true; return; }
+    S.calId=null; S.evIds={}; S.rem={};
+    Object.keys(S.data).forEach(k=>{ S.pending[k]=true; });   // lo que hay local se vuelve a subir
+  }
+  try{
+    const r=await gcal('GET','/users/me/calendarList?minAccessRole=owner&maxResults=250');
+    const c=(r?.items||[]).find(c=>c.summary===CAL_NAME);
+    if(c) S.calId=c.id;
+  }catch(e){ if(e instanceof AuthError) throw e; }
+  if(!S.calId){
+    const r=await gcal('POST','/calendars',{summary:CAL_NAME,timeZone:TZ,
+      description:'Visitas a oficina y recordatorios diarios de Office Tracker (ScotiaTech).'});
+    S.calId=r.id;
+  }
+  S.calChecked=true;
+  localStorage.setItem(LS_CAL,S.calId); save();
 }
 
-// Lleva a Calendar el estado local de un día: crea, actualiza o borra. Nunca duplica.
+// ── Eventos de día (la "base de datos") ──────────────────────
+function dayBody(key,type){
+  const hist=S.log.filter(e=>e.d===key).slice(-10);
+  const last=hist[hist.length-1]||{};
+  const lines=hist.map(e=>`${fmtTs(e.ts)} · ${TYPE_LBL[e.from]} → ${TYPE_LBL[e.to]} · ${srcText(e)} · disp. ${e.dev}`);
+  return {
+    summary:TYPE_LBL[type], status:'confirmed',
+    start:{date:key}, end:{date:toKey(addD(fromKey(key),1))},
+    description:`Registrado por Office Tracker.\n\nHistorial de este día:\n${lines.join('\n')||'—'}`,
+    extendedProperties:{private:{appId:APP_ID,kind:'day',type,
+      src:last.src||'',ts:String(last.ts||''),dev:last.dev||'',ref:last.ref||'',ver:last.ok||''}}
+  };
+}
+function classify(ev){
+  if(ev.status==='cancelled') return null;
+  const t=(ev.summary||'').toLowerCase();
+  if(/🏖|libre|vacaci/.test(t)) return 'vacation';
+  if(/🏢|oficina|office/.test(t)) return 'office';
+  const x=ev.extendedProperties?.private?.type;
+  return (x==='office'||x==='vacation')?x:'office';   // cualquier otro evento en este calendario = oficina
+}
+
+// Lleva a Calendar el estado local de un día. Nunca duplica.
 async function pushDay(key){
+  if(timers[key]) return;                 // sigue en la ventana de "Deshacer"
   const type=S.data[key]||null, id=S.evIds[key];
   if(id&&type){
-    const r=await gcal('PATCH',`/calendars/primary/events/${encodeURIComponent(id)}`,evBody(key,type));
+    const r=await gcal('PATCH',`${calPath()}/events/${enc(id)}`,dayBody(key,type));
     if(r?.notFound){ delete S.evIds[key]; return pushDay(key); }
   }else if(id&&!type){
-    await gcal('DELETE',`/calendars/primary/events/${encodeURIComponent(id)}`);
-    delete S.evIds[key];
+    await delEvent(id); delete S.evIds[key];
   }else if(!id&&type){
-    const r=await gcal('POST','/calendars/primary/events',evBody(key,type));
+    const r=await gcal('POST',`${calPath()}/events`,dayBody(key,type));
     if(r?.id) S.evIds[key]=r.id;
   }
   delete S.pending[key]; save();
-}
-
-// Cola: las llamadas a Calendar se ejecutan una por una (evita carreras con toques rápidos)
-let chain=Promise.resolve();
-function enqueue(fn){
-  chain=chain.then(fn).catch(e=>{ if(!(e instanceof AuthError)) console.error(e); render(); });
-  return chain;
+  await syncRemindersForDate(key);
 }
 
 // Reconciliación del mes visible:
-// - Días con cambios locales pendientes → gana el teléfono.
-// - Días sin cambios pendientes → gana Calendar (incluye borrados hechos allá).
-// - Eventos duplicados del mismo día → se deja uno y se borran los demás.
+//  - Pendiente en el celular → gana el celular.
+//  - Sin pendientes → gana Calendar (crear, mover, renombrar o borrar desde la app de Calendar).
+//  - Duplicados del mismo día → se deja uno.
 async function reconcileMonth(year,month){
   const prefix=`${year}-${p2(month+1)}`;
-  const tMin=encodeURIComponent(new Date(year,month,1).toISOString());
-  const tMax=encodeURIComponent(new Date(year,month+1,1).toISOString());
-  const prop=encodeURIComponent(`appId=${APP_ID}`);
-  const items=[]; let pageToken='';
-  do{
-    const r=await gcal('GET',`/calendars/primary/events?privateExtendedProperty=${prop}&timeMin=${tMin}&timeMax=${tMax}&singleEvents=true&maxResults=250${pageToken?`&pageToken=${encodeURIComponent(pageToken)}`:''}`);
-    items.push(...(r?.items||[]));
-    pageToken=r?.nextPageToken||'';
-  }while(pageToken);
-
+  const items=await listEvents({timeMin:new Date(year,month,1).toISOString(),timeMax:new Date(year,month+1,1).toISOString()});
   const byDay={};
   for(const ev of items){
+    if(ev.extendedProperties?.private?.kind==='reminder') continue;
     const ds=ev.start?.date||ev.start?.dateTime?.slice(0,10);
-    const type=ev.extendedProperties?.private?.type;
-    if(!ds||!ds.startsWith(prefix)||(type!=='office'&&type!=='vacation')) continue;
+    const type=classify(ev);
+    if(!ds||!ds.startsWith(prefix)||!type) continue;
     (byDay[ds]=byDay[ds]||[]).push({id:ev.id,type});
   }
   for(const [ds,evs] of Object.entries(byDay)){
     const keep=evs.find(e=>e.id===S.evIds[ds])||evs[0];
-    for(const e of evs) if(e!==keep) await gcal('DELETE',`/calendars/primary/events/${encodeURIComponent(e.id)}`);
+    for(const e of evs) if(e!==keep) await delEvent(e.id);
     S.evIds[ds]=keep.id;
-    if(!S.pending[ds]) S.data[ds]=keep.type;
+    if(!S.pending[ds]&&S.data[ds]!==keep.type){
+      logChange({d:ds,from:S.data[ds]||null,to:keep.type,src:'calendar'});
+      S.data[ds]=keep.type;
+    }
   }
   for(const ds of Object.keys(S.evIds)){
-    if(ds.startsWith(prefix)&&!byDay[ds]&&!S.pending[ds]){ delete S.evIds[ds]; delete S.data[ds]; }
+    if(ds.startsWith(prefix)&&!byDay[ds]&&!S.pending[ds]){
+      if(S.data[ds]) logChange({d:ds,from:S.data[ds],to:null,src:'calendar'});
+      delete S.evIds[ds]; delete S.data[ds];
+    }
   }
   save();
-  for(const ds of Object.keys(S.pending)) await pushDay(ds);
+  for(const ds of Object.keys(S.pending)) if(!timers[ds]) await pushDay(ds);
 }
 
-async function syncMonth(){
+// ── Avisos 10:00 y 16:30 (lun–vie, sin festivos, sin días ya marcados) ──
+function reminderBody(key,slot,nonce){
+  const sl=slotOf(slot);
+  return {
+    summary:sl.title, transparency:'transparent',
+    start:{dateTime:`${key}T${p2(sl.h)}:${p2(sl.m)}:00`,timeZone:TZ},
+    end:{dateTime:`${key}T${p2(sl.h)}:${p2(sl.m+5)}:00`,timeZone:TZ},
+    description:`Toca el enlace para registrar el día:\n${APP_URL}?d=${key}&r=${slot}&n=${nonce}`,
+    reminders:{useDefault:false,overrides:[{method:'popup',minutes:0}]},
+    extendedProperties:{private:{appId:APP_ID,kind:'reminder',date:key,slot,nonce}}
+  };
+}
+function desiredSlots(key){
+  const d=fromKey(key);
+  if(isWeekend(d)||getHol(d)||S.data[key]||S.skip[key]) return [];
+  const t=new Date();
+  return SLOTS.filter(sl=>{ const at=new Date(d); at.setHours(sl.h,sl.m,0,0); return at>t; }).map(sl=>sl.id);
+}
+async function syncRemindersForDate(key){
+  if(key<toKey(now)||key>toKey(addD(now,HORIZON))) {
+    // Fuera del horizonte: solo se borran avisos que ya no aplican
+    for(const sl of SLOTS){ const k=`${key}|${sl.id}`; if(S.rem[k]&&(S.data[key]||S.skip[key])){ await delEvent(S.rem[k].id); delete S.rem[k]; } }
+    save(); return;
+  }
+  const want=new Set(desiredSlots(key));
+  for(const sl of SLOTS){
+    const k=`${key}|${sl.id}`, have=S.rem[k];
+    if(want.has(sl.id)&&!have){
+      const nonce=rid(4);
+      const r=await gcal('POST',`${calPath()}/events`,reminderBody(key,sl.id,nonce));
+      if(r?.id){ S.rem[k]={id:r.id,nonce}; S.nonces[nonce]={d:key,slot:sl.id}; }
+    }else if(!want.has(sl.id)&&have){
+      await delEvent(have.id); delete S.rem[k];
+    }
+  }
+  save();
+}
+async function reconcileReminders(){
+  const from=addD(now,-7), to=addD(now,HORIZON+1), yest=toKey(addD(now,-1));
+  const items=await listEvents({timeMin:from.toISOString(),timeMax:to.toISOString(),privateExtendedProperty:'kind=reminder'});
+  const fresh={};
+  for(const ev of items){
+    const p=ev.extendedProperties?.private||{}, k=`${p.date}|${p.slot}`;
+    if(p.nonce) S.nonces[p.nonce]={d:p.date,slot:p.slot};
+    if(fresh[k]||!p.date||p.date<yest){ await delEvent(ev.id); continue; }   // duplicado o viejo
+    fresh[k]={id:ev.id,nonce:p.nonce};
+  }
+  const a=toKey(from), b=toKey(to);
+  for(const k of Object.keys(S.rem)){ const d=k.split('|')[0]; if(d>=a&&d<=b) delete S.rem[k]; }
+  Object.assign(S.rem,fresh);
+  for(let i=0;i<=HORIZON;i++) await syncRemindersForDate(toKey(addD(now,i)));
+  const ks=Object.keys(S.nonces); if(ks.length>300) ks.slice(0,ks.length-300).forEach(k=>delete S.nonces[k]);
+  save();
+}
+
+// Cola: todo lo que va a Calendar se ejecuta en orden, uno por uno
+let chain=Promise.resolve();
+function enqueue(fn){
+  chain=chain.then(fn).catch(e=>{
+    if(e instanceof AuthError) S.lastError=null;
+    else { console.error(e); S.lastError=e.message; }
+    render();
+  });
+  return chain;
+}
+async function syncAll(){
   if(!hasToken()){ render(); return; }
   S.syncing++; render();
   const {year,month}=S;
-  await enqueue(()=>reconcileMonth(year,month));
+  await enqueue(async()=>{
+    S.lastError=null;
+    await ensureCalendar();
+    await reconcileMonth(year,month);
+    await reconcileReminders();
+  });
   S.syncing--; render();
 }
 
+// Limpieza única de los eventos que la v2 dejó en el calendario principal
+async function cleanupLegacy(){
+  if(!await whenGIS()) return;
+  if(!legacyClient) legacyClient=google.accounts.oauth2.initTokenClient({
+    client_id:S.cid, scope:LEGACY_SCOPE, include_granted_scopes:false,
+    callback:async r=>{
+      if(r.error) return;
+      S.syncing++; render();
+      for(const [k,id] of Object.entries(S.legacy)){
+        try{
+          const res=await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${enc(id)}`,
+            {method:'DELETE',headers:{Authorization:`Bearer ${r.access_token}`}});
+          if(res.ok||res.status===404||res.status===410) delete S.legacy[k];
+        }catch(_){}
+      }
+      save(); S.syncing--; render();
+    }
+  });
+  legacyClient.requestAccessToken({prompt:''});
+}
+
 // ═══════════════════════════════════════════════════════════
-// TOGGLE
+// CAMBIOS + DESHACER
+// ═══════════════════════════════════════════════════════════
+const timers={};
+function schedulePush(key,delay=UNDO_MS){
+  clearTimeout(timers[key]);
+  timers[key]=setTimeout(()=>{ delete timers[key]; if(online()) enqueue(()=>pushDay(key)).then(render); },delay);
+}
+function flushPushes(){
+  for(const k of Object.keys(timers)){ clearTimeout(timers[k]); delete timers[k]; if(online()) enqueue(()=>pushDay(k)); }
+  hideUndo();
+}
+function applyChange(key,next,src,meta={}){
+  const prev=S.data[key]||null;
+  if(prev===next&&src!=='notif') return;
+  if(next) S.data[key]=next; else delete S.data[key];
+  logChange({d:key,from:prev,to:next,src,...meta});
+  S.pending[key]=true; save(); render();
+  schedulePush(key);
+  showUndo(key,prev,next);
+}
 //  Día hábil:            vacío → 🏢 → 🏖️ → vacío
-//  Festivo entre semana: vacío → 🏢 → vacío   (el festivo ya ajusta la meta)
+//  Festivo entre semana: vacío → 🏢 → vacío
 //  Fin de semana:        vacío → 🏖️ → vacío
-// ═══════════════════════════════════════════════════════════
 function toggle(date){
-  const key=toKey(date), cur=S.data[key];
+  const key=toKey(date), cur=S.data[key]||null;
   let next;
   if(isWeekend(date)) next=cur==='vacation'?null:'vacation';
   else if(getHol(date)) next=cur==='office'?null:'office';
   else next=!cur?'office':cur==='office'?'vacation':null;
-  if(next) S.data[key]=next; else delete S.data[key];
-  S.pending[key]=true; save(); render();
-  if(hasToken()) enqueue(()=>pushDay(key)).then(render);
+  applyChange(key,next,'manual');
 }
+
+let undoState=null, undoTimer=null;
+function showUndo(key,prev,next){
+  undoState={key,prev};
+  const t=document.getElementById('toast');
+  document.getElementById('toast-txt').textContent=`${next?TYPE_LBL[next]:'Quitado'} · ${fmtDay(key)}`;
+  const bar=document.getElementById('toast-bar');
+  bar.style.animation='none'; void bar.offsetWidth; bar.style.animation=`drain ${UNDO_MS}ms linear forwards`;
+  t.classList.add('show');
+  clearTimeout(undoTimer); undoTimer=setTimeout(hideUndo,UNDO_MS);
+}
+function hideUndo(){ undoState=null; document.getElementById('toast').classList.remove('show'); }
+function doUndo(){
+  if(!undoState) return;
+  const {key,prev}=undoState; hideUndo();
+  const cur=S.data[key]||null;
+  if(prev) S.data[key]=prev; else delete S.data[key];
+  logChange({d:key,from:cur,to:prev,src:'undo'});
+  S.pending[key]=true; save(); render();
+  schedulePush(key,0);
+}
+
+// ═══════════════════════════════════════════════════════════
+// ENLACE DESDE EL AVISO (?d=AAAA-MM-DD&r=r10|r16&n=código)
+// ═══════════════════════════════════════════════════════════
+function readDeepLink(){
+  const q=new URLSearchParams(location.search);
+  const d=q.get('d'), r=q.get('r'), n=q.get('n');
+  if(q.toString()) history.replaceState(null,'',location.pathname);
+  if(!d||!/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
+  return {d, slot:slotOf(r)?r:null, nonce:n&&/^[0-9a-f]{6,32}$/.test(n)?n:null};
+}
+async function verifyNonce(d,n){
+  if(S.nonces[n]) return S.nonces[n].d===d?'ok':'bad';
+  if(online()){
+    try{
+      const r=await gcal('GET',`${calPath()}/events?privateExtendedProperty=${enc('nonce='+n)}&showDeleted=true&maxResults=5`);
+      const p=r?.items?.[0]?.extendedProperties?.private;
+      if(p) return p.date===d?'ok':'bad';
+    }catch(_){}
+  }
+  return 'unknown';
+}
+async function openNotifSheet(link){
+  const sl=slotOf(link.slot);
+  let ok=link.nonce?'checking':'unknown';
+  const okTxt=()=>ok==='checking'?'verificando código…':ok==='ok'?'<span style="color:#4ade80">código verificado ✓</span>':
+    ok==='bad'?'<span style="color:#f87171">⚠ el código no coincide con ese día</span>':'<span style="color:#fbbf24">sin verificar</span>';
+  const paint=()=>{
+    const cur=S.data[link.d]||null;
+    openSheet(`
+      <h2>${fmtDayLong(link.d)}</h2>
+      <p>Desde el aviso de las ${sl?.label||'—'} · ${okTxt()}${link.nonce?`<br><span style="font-family:monospace;font-size:9px;color:#475569">ref ${link.nonce}</span>`:''}</p>
+      <p>Estado actual: <strong style="color:var(--text)">${TYPE_LBL[cur]}</strong></p>
+      <div class="sheet-btns">
+        <button class="btn-p" data-pick="office">🏢 Fui a la oficina</button>
+        <button class="btn-s" data-pick="vacation">🏖️ Día libre</button>
+        <button class="btn-s" data-pick="none">Hoy no fui</button>
+        <button class="btn-s" data-pick="close" style="border:none;background:none">Cerrar</button>
+      </div>`);
+    document.querySelectorAll('[data-pick]').forEach(b=>b.addEventListener('click',()=>pick(b.dataset.pick)));
+  };
+  const pick=v=>{
+    closeSheet(); if(v==='close') return;
+    const meta={slot:link.slot,ref:link.nonce||'',ok:ok==='checking'?'unknown':ok};
+    if(v==='none'){
+      const cur=S.data[link.d]||null;
+      S.skip[link.d]=true;
+      logChange({d:link.d,from:cur,to:cur,src:'notif',note:'Hoy no fui',...meta});
+      save(); render();
+      if(online()) enqueue(()=>syncRemindersForDate(link.d)).then(render);
+      return;
+    }
+    applyChange(link.d,v,'notif',meta);
+  };
+  const d=fromKey(link.d); S.year=d.getFullYear(); S.month=d.getMonth(); render();
+  paint();
+  if(link.nonce){ ok=await verifyNonce(link.d,link.nonce); if(document.getElementById('sheet').style.display!=='none') paint(); }
+}
+
+// ═══════════════════════════════════════════════════════════
+// HISTORIAL DE UN DÍA (mantener presionado un día)
+// ═══════════════════════════════════════════════════════════
+function openDaySheet(key){
+  const es=S.log.filter(e=>e.d===key).slice().reverse();
+  const st=S.data[key]||null;
+  const sync=!S.cid?'solo en este dispositivo':S.pending[key]?'<span style="color:#93c5fd">pendiente por subir</span>':
+    S.evIds[key]?'<span style="color:#4ade80">guardado en Google Calendar ✓</span>':'—';
+  openSheet(`
+    <h2>${fmtDayLong(key)}</h2>
+    <p>${getHol(fromKey(key))?`${FLAG} ${getHol(fromKey(key))} · `:''}Estado: <strong style="color:var(--text)">${TYPE_LBL[st]}</strong> · ${sync}</p>
+    <div class="day-log">${es.length?es.map(e=>{const [c,l]=srcBadge(e);return `
+      <div class="dl-row">
+        <div><span class="badge ${c}">${l}</span> <span class="dl-ts">${fmtTs(e.ts)}</span></div>
+        <div class="dl-chg">${TYPE_LBL[e.from]} → ${TYPE_LBL[e.to]}</div>
+        <div class="dl-meta">${srcText(e)} · disp. ${e.dev}${e.dev===S.dev?' (este)':''} · id ${e.id}</div>
+      </div>`;}).join(''):'<p>Sin cambios registrados para este día.</p>'}</div>
+    <div class="sheet-btns"><button class="btn-s" id="sheet-close">Cerrar</button></div>`);
+  document.getElementById('sheet-close').addEventListener('click',closeSheet);
+}
+function openSheet(html){ document.getElementById('sheet-body').innerHTML=html; document.getElementById('sheet').style.display='flex'; }
+function closeSheet(){ document.getElementById('sheet').style.display='none'; }
 
 // ═══════════════════════════════════════════════════════════
 // RENDER
@@ -453,7 +801,6 @@ function render(){
 
   document.getElementById('nav-title').textContent=`${MONTHS[month]} ${year}`;
 
-  // Stats
   document.getElementById('stats').innerHTML=[
     {l:'Visitados',v:s.visited,c:s.done?'#4ade80':G,sub:''},
     {l:'Meta',v:s.target,c:'#475569',sub:`${BASE}−${s.adjN}`},
@@ -461,13 +808,11 @@ function render(){
     {l:'Sem.Fest',v:s.adjN,c:'#fbbf24',sub:''},
   ].map(x=>`<div class="stat"><div class="stat-val" style="color:${x.c}">${x.v}</div>${x.sub?`<div class="stat-sub">${x.sub}</div>`:''}<div class="stat-lbl">${x.l}</div></div>`).join('');
 
-  // Progress
   const pf=document.getElementById('prog-fill');
   pf.style.width=`${s.pct}%`;
   pf.style.background=s.done?'linear-gradient(90deg,#22c55e,#4ade80)':`linear-gradient(90deg,${R},${G})`;
   document.getElementById('prog-lbl').textContent=`${s.pct}% · ${s.visited}/${s.target}`;
 
-  // Prediction
   const ok=s.canMax>=s.remaining;
   document.getElementById('prediction').innerHTML=`
   <div class="predict ${ok?'ok':'warn'}">
@@ -484,14 +829,12 @@ function render(){
         <div class="pred-hint">${ok?'✅ alcanzable':'⚠️ visitas'}</div>
       </div>
     </div>
-    ${s.upHols.length?`<div class="pred-hols"><div style="color:#7f1d1d;margin-bottom:3px">🇨🇴 Próximos festivos de ${MONTHS[month]}:</div>${s.upHols.map(h=>`<div style="color:#f87171;margin-bottom:1px"><span style="font-family:monospace;color:#7f1d1d;width:28px;display:inline-block">${h.date.getDate()}/${h.date.getMonth()+1}</span>${h.name} <span style="font-size:8px;color:#475569">→ meta −1</span></div>`).join('')}</div>`:''}
+    ${s.upHols.length?`<div class="pred-hols"><div style="color:#7f1d1d;margin-bottom:3px">${FLAG} Próximos festivos de ${MONTHS[month]}:</div>${s.upHols.map(h=>`<div style="color:#f87171;margin-bottom:1px"><span style="font-family:monospace;color:#7f1d1d;width:28px;display:inline-block">${h.date.getDate()}/${h.date.getMonth()+1}</span>${h.name} <span style="font-size:8px;color:#475569">→ meta −1</span></div>`).join('')}</div>`:''}
   </div>`;
 
-  // Day headers
   document.getElementById('day-hdrs').innerHTML='<div></div>'+
     DAYS.map(d=>`<div class="day-hdr" style="color:${d==='Sáb'||d==='Dom'?'#1e293b':'#334155'}">${d}</div>`).join('');
 
-  // Weeks
   document.getElementById('weeks').innerHTML=s.ws.map(w=>{
     const days=Array.from({length:7},(_,i)=>addD(w.mon,i));
     const wD=w.visited>=w.quota;
@@ -502,16 +845,16 @@ function render(){
         <div class="week-ind-q">/${w.quota}</div>
       </div>
       ${days.map((date,di)=>{
-        const inM=inMonth(date,year,month);
-        const isWE=di>=5,isTd=toKey(date)===toKey(now),colH=getHol(date),st=S.data[toKey(date)];
+        const k=toKey(date), inM=inMonth(date,year,month);
+        const isWE=di>=5,isTd=k===toKey(now),colH=getHol(date),st=S.data[k];
         let bg='transparent',tc=!inM?'#0f172a':isWE?'#1e293b':'#374151',bd='transparent',ic='';
         if(isTd&&!colH&&!st){bd=R;tc='#f0e6c8';}
         if(st==='office')  {bg='rgba(34,197,94,0.14)'; tc='#4ade80';bd='rgba(34,197,94,0.3)';  ic='🏢';}
         if(st==='vacation'){bg='rgba(251,191,36,0.11)';tc='#fbbf24';bd='rgba(251,191,36,0.25)';ic='🏖️';}
-        if(colH)           {bg='rgba(193,0,42,0.14)';  tc='#f87171';bd='rgba(193,0,42,0.32)';  ic='🇨🇴';}
+        if(colH)           {bg='rgba(193,0,42,0.14)';  tc='#f87171';bd='rgba(193,0,42,0.32)';  ic=FLAG;}
         if(colH&&st==='office'){bg='rgba(34,197,94,0.2)';tc='#4ade80';bd='rgba(34,197,94,0.4)';ic='🏢';}
-        const pend=inM&&S.pending[toKey(date)]&&S.cid?'<span style="position:absolute;top:2px;right:3px;width:4px;height:4px;border-radius:50%;background:#93c5fd"></span>':'';
-        return `<div class="day-cell ${!inM?'other':''}" style="position:relative;background:${bg};border-color:${bd}" ${inM?`data-ts="${date.getTime()}"`:''}>
+        const pend=inM&&S.pending[k]&&S.cid?'<span class="pend-dot"></span>':'';
+        return `<div class="day-cell ${!inM?'other':''}" style="background:${bg};border-color:${bd}" ${inM?`data-ts="${date.getTime()}"`:''}>
           ${pend}
           <span class="day-num" style="font-weight:${isTd?700:400};color:${tc}">${date.getDate()}</span>
           ${ic?`<span class="day-icon">${ic}</span>`:''}
@@ -520,7 +863,6 @@ function render(){
     </div>`;
   }).join('');
 
-  // Breakdown
   document.getElementById('breakdown').innerHTML='<div class="sec-ttl">Desglose semanal</div>'+
     s.ws.map(w=>{
       const sl=`${w.mon.getDate()}/${w.mon.getMonth()+1}`,el=`${w.sun.getDate()}/${w.sun.getMonth()+1}`;
@@ -529,43 +871,62 @@ function render(){
         <div class="bk-lbl">${sl}–${el}</div>
         <div class="bk-bar-w"><div class="bk-bar" style="width:${w.quota>0?Math.min(100,w.visited/w.quota*100):100}%;background:${bC}"></div></div>
         <div class="bk-val" style="color:${wD?'#4ade80':w.hasAdj?'#fbbf24':'#475569'}">${w.visited}/${w.quota}</div>
-        <div class="bk-ico">${wD?'✅':w.hasAdj?'🇨🇴':''}</div>
+        <div class="bk-ico">${wD?'✅':w.hasAdj?FLAG:''}</div>
       </div>`;
     }).join('');
 
-  // Festivos
+  // Historial del mes
+  const prefix=`${year}-${p2(month+1)}`;
+  const mLog=S.log.filter(e=>e.d.startsWith(prefix)).slice().reverse();
+  const shown=S.showAllLog?mLog:mLog.slice(0,8);
+  document.getElementById('history').innerHTML=`<div class="sec-ttl">Historial de cambios</div>`+
+    (mLog.length?shown.map(e=>{const [c,l]=srcBadge(e);const d=fromKey(e.d);return `
+      <div class="log-row" data-day="${e.d}">
+        <span class="log-d">${d.getDate()}/${d.getMonth()+1}</span>
+        <span class="log-t">${TYPE_IC[e.from]} → ${TYPE_IC[e.to]}</span>
+        <span><span class="badge ${c}">${l}</span>${e.dev!==S.dev?' <span class="log-dev">otro disp.</span>':''}</span>
+        <span class="log-ts">${fmtTs(e.ts)}</span>
+      </div>`;}).join('')+(mLog.length>8?`<button class="log-more" id="btn-log-more">${S.showAllLog?'Ver menos':`Ver los ${mLog.length}`}</button>`:'')
+    :'<div class="log-empty">Aún no hay cambios este mes. Mantén presionado un día para ver su detalle.</div>');
+
   const festEl=document.getElementById('festivos');
   if(s.mHols.length){
-    festEl.innerHTML='<div class="festivos"><div class="sec-ttl" style="color:#7f1d1d">🇨🇴 Festivos de '+MONTHS[month]+'</div>'+
+    festEl.innerHTML=`<div class="festivos"><div class="sec-ttl" style="color:#7f1d1d">${FLAG} Festivos de ${MONTHS[month]}</div>`+
       s.mHols.map(([k,n])=>{const d=fromKey(k),p=d<now;return `<div class="fest-row" style="opacity:${p?.5:1}"><span class="fest-day">${d.getDate()}</span><span>${n}</span>${p?'<span style="font-size:8px;color:#475569;margin-left:4px">· pasado</span>':''}</div>`;}).join('')+'</div>';
   } else festEl.innerHTML='';
 
-  // GCal bar
+  // Barra de Google Calendar
   const gb=document.getElementById('gcal-bar');
-  const pc=pendingCount();
+  const pc=pendingCount(), lc=Object.keys(S.legacy).length;
+  const err=S.lastError?`<br><span style="color:#f87171;font-size:9px">${S.lastError}</span>`:'';
   if(hasToken()){
-    gb.innerHTML=`<div class="gcal-status">📅 Google Calendar <strong>conectado</strong>${S.syncing?' · sincronizando...':pc?` · ${pc} por subir`:''}</div>
-    <button class="gcal-btn ${S.syncing?'syncing':''}" id="btn-sync">${S.syncing?'⏳ Sync...':'↻ Sincronizar'}</button>`;
+    gb.innerHTML=`<div class="gcal-status">📅 Calendario <strong>${CAL_NAME}</strong> conectado${S.syncing?' · sincronizando…':pc?` · ${pc} por subir`:''}${err}
+      ${lc?`<br><span class="gcal-link" id="btn-legacy">Borrar ${lc} evento${lc>1?'s':''} viejo${lc>1?'s':''} del calendario principal</span>`:''}</div>
+    <button class="gcal-btn ${S.syncing?'syncing':''}" id="btn-sync">${S.syncing?'⏳ Sync…':'↻ Sincronizar'}</button>`;
   } else if(S.cid){
-    gb.innerHTML=`<div class="gcal-status">📅 Sesión de Google <span style="color:#fbbf24">vencida</span>${pc?` · ${pc} cambio${pc>1?'s':''} por subir`:''}<br><span id="btn-cid" style="font-size:8px;color:#475569;text-decoration:underline;cursor:pointer">Cambiar Client ID</span></div>
+    gb.innerHTML=`<div class="gcal-status">📅 Sesión de Google <span style="color:#fbbf24">vencida</span>${pc?` · ${pc} cambio${pc>1?'s':''} por subir`:''}${err}<br><span class="gcal-link" id="btn-cid">Cambiar Client ID</span></div>
     <button class="gcal-btn" id="btn-reconnect">Reconectar</button>`;
   } else {
     gb.innerHTML=`<div class="gcal-status">📅 Google Calendar <span style="color:#475569">desconectado</span></div>
-    <button class="gcal-btn" id="btn-connect">Conectar →</button>`;
+    <button class="gcal-btn" id="btn-connect">Conectar</button>`;
   }
 
-  // Re-bind dynamic events
   document.querySelectorAll('.day-cell[data-ts]').forEach(el=>{
-    el.addEventListener('click',()=>toggle(new Date(+el.dataset.ts)));
+    const date=new Date(+el.dataset.ts);
+    el.addEventListener('click',()=>toggle(date));
+    el.addEventListener('contextmenu',e=>{ e.preventDefault(); openDaySheet(toKey(date)); });
   });
+  document.querySelectorAll('.log-row[data-day]').forEach(el=>el.addEventListener('click',()=>openDaySheet(el.dataset.day)));
+  document.getElementById('btn-log-more')?.addEventListener('click',()=>{ S.showAllLog=!S.showAllLog; render(); });
   document.getElementById('btn-connect')?.addEventListener('click',showModal);
   document.getElementById('btn-cid')?.addEventListener('click',showModal);
   document.getElementById('btn-reconnect')?.addEventListener('click',connect);
-  document.getElementById('btn-sync')?.addEventListener('click',syncMonth);
+  document.getElementById('btn-sync')?.addEventListener('click',syncAll);
+  document.getElementById('btn-legacy')?.addEventListener('click',cleanupLegacy);
 }
 
 // ═══════════════════════════════════════════════════════════
-// MODAL
+// MODALES Y NAVEGACIÓN
 // ═══════════════════════════════════════════════════════════
 function showModal(){ document.getElementById('cid-input').value=S.cid||''; document.getElementById('modal').style.display='flex'; }
 function hideModal(){ document.getElementById('modal').style.display='none'; }
@@ -573,31 +934,28 @@ function hideModal(){ document.getElementById('modal').style.display='none'; }
 function goMonth(delta){
   S.month+=delta;
   if(S.month<0){S.month=11;S.year--;} else if(S.month>11){S.month=0;S.year++;}
-  render();
-  if(hasToken()) syncMonth();
+  S.showAllLog=false; render();
+  if(hasToken()) syncAll();
 }
 document.getElementById('btn-prev').addEventListener('click',()=>goMonth(-1));
 document.getElementById('btn-next').addEventListener('click',()=>goMonth(1));
 document.getElementById('modal-cancel').addEventListener('click',hideModal);
 document.getElementById('modal').addEventListener('click',e=>{ if(e.target===e.currentTarget) hideModal(); });
+document.getElementById('sheet').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeSheet(); });
+document.getElementById('toast-undo').addEventListener('click',doUndo);
 document.getElementById('modal-save').addEventListener('click',()=>{
   const cid=document.getElementById('cid-input').value.trim(); if(!cid) return;
-  if(cid!==S.cid){ clearToken(); tokenClient=null; }
+  if(cid!==S.cid){ clearToken(); tokenClient=null; legacyClient=null; }
   S.cid=cid; localStorage.setItem(LS_CID,cid); hideModal();
   connect();
 });
 
-// ═══════════════════════════════════════════════════════════
-// "HOY" VIVO: refresca al volver a la app y al pasar la medianoche
-// ═══════════════════════════════════════════════════════════
-function refreshToday(){
-  const t=today();
-  if(t.getTime()!==now.getTime()){ now=t; render(); }
-}
+// "Hoy" vivo y subida inmediata al salir de la app
+function refreshToday(){ const t=today(); if(t.getTime()!==now.getTime()){ now=t; render(); } }
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden) return;
+  if(document.hidden){ flushPushes(); return; }
   refreshToday(); render();
-  if(hasToken()) syncMonth();
+  if(hasToken()) syncAll();
 });
 setInterval(refreshToday,60*1000);
 
@@ -606,9 +964,11 @@ setInterval(refreshToday,60*1000);
 // ═══════════════════════════════════════════════════════════
 if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
 load();
+const _link=readDeepLink();
 render();
 whenGIS().then(()=>{ if(S.cid) initGIS(); });
-if(hasToken()) syncMonth();
+if(hasToken()) syncAll();
+if(_link) openNotifSheet(_link);
 </script>
 </body>
 </html>

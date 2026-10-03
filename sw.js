@@ -1,5 +1,5 @@
 // Sube este número cada vez que publiques cambios en GitHub Pages
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = `office-tracker-${VERSION}`;
 const ASSETS = ['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png'];
 
@@ -27,7 +27,7 @@ self.addEventListener('fetch', e => {
         const clone = resp.clone();
         caches.open(CACHE).then(c => c.put(req, clone));
         return resp;
-      }).catch(() => caches.match(req).then(r => r || caches.match('./index.html')))
+      }).catch(() => caches.match(req, { ignoreSearch: true }).then(r => r || caches.match('./index.html')))
     );
     return;
   }
