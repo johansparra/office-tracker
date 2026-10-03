@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="theme-color" content="#c1002a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="OfficeTracker">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Office Tracker · ScotiaTech</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080c18;--card:#111827;--card2:#0d1424;
+  --red:#c1002a;--gold:#e2c67a;--green:#22c55e;--greenl:#4ade80;
+  --yellow:#fbbf24;--redl:#f87171;
+  --text:#f0e6c8;--sub:#475569;--dim:#334155;--dimmer:#1e3a5f;
+  --faint:rgba(255,255,255,0.05);--bdr:1px solid rgba(255,255,255,0.07);
+}
+body{background:var(--bg);color:var(--text);font-family:Georgia,'Times New Roman',serif;min-height:100vh;padding:16px 10px 40px;-webkit-font-smoothing:antialiased;padding-top:env(safe-area-inset-top,16px)}
+.wrap{max-width:450px;margin:0 auto}
+/* Brand */
+.brand{text-align:center;margin-bottom:14px}
+.brand-tag{font-size:9px;letter-spacing:4px;color:var(--red);text-transform:uppercase;margin-bottom:3px;font-family:monospace}
+.brand-title{font-size:22px;font-weight:700;color:var(--text)}
+.brand-note{font-size:9px;color:var(--dim);margin-top:2px}
+/* Card */
+.card{background:linear-gradient(160deg,var(--card),var(--card2));border-radius:18px;border:1px solid rgba(225,198,122,0.1);box-shadow:0 20px 50px rgba(0,0,0,0.6);overflow:hidden}
+/* Nav */
+.nav{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:var(--bdr)}
+.nav-btn{background:var(--faint);border:none;color:var(--sub);border-radius:9px;width:32px;height:32px;cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
+.nav-btn:active{opacity:.6}
+.nav-title{font-size:18px;font-weight:700;color:var(--text)}
+/* Stats */
+.stats{display:flex;padding:10px 12px 6px;gap:6px}
+.stat{flex:1;background:var(--faint);border-radius:10px;padding:8px 3px;text-align:center;border:var(--bdr)}
+.stat-val{font-size:19px;font-weight:700;line-height:1}
+.stat-sub{font-size:7px;color:var(--dim);margin-top:2px}
+.stat-lbl{font-size:7px;color:var(--dim);margin-top:3px;text-transform:uppercase;letter-spacing:.5px}
+/* Progress */
+.prog-wrap{padding:3px 12px 10px}
+.prog-bar{background:var(--faint);border-radius:99px;height:5px;overflow:hidden}
+.prog-fill{height:100%;border-radius:99px;transition:width .5s}
+.prog-lbl{text-align:right;margin-top:2px;font-size:8px;color:var(--dim)}
+/* Prediction */
+.predict{margin:0 10px 10px;border-radius:10px;padding:9px 12px}
+.predict.ok{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2)}
+.predict.warn{background:rgba(193,0,42,.06);border:1px solid rgba(193,0,42,.2)}
+.pred-ttl{font-size:8px;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;font-family:monospace}
+.predict.ok .pred-ttl{color:#166534}.predict.warn .pred-ttl{color:#7f1d1d}
+.pred-body{display:flex;gap:8px}
+.pred-info{flex:1;font-size:10px;color:var(--sub);line-height:1.8}
+.pred-info strong{color:var(--text);font-weight:700}
+.pred-badge{display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:10px;padding:8px 14px}
+.predict.ok .pred-badge{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2)}
+.predict.warn .pred-badge{background:rgba(193,0,42,.1);border:1px solid rgba(193,0,42,.2)}
+.pred-num{font-size:26px;font-weight:700;line-height:1}
+.predict.ok .pred-num{color:var(--greenl)}.predict.warn .pred-num{color:var(--redl)}
+.pred-hint{font-size:9px;color:var(--sub);margin-top:2px}
+.pred-hols{margin-top:7px;padding-top:7px;border-top:1px solid rgba(255,255,255,.06);font-size:9px}
+/* Day headers */
+.day-hdrs{display:grid;grid-template-columns:26px repeat(7,1fr);gap:2px;padding:0 8px 3px}
+.day-hdr{text-align:center;font-size:8px;font-weight:600;font-family:monospace}
+/* Weeks */
+.weeks{padding:0 8px 12px;display:flex;flex-direction:column;gap:2px}
+.week-row{display:grid;grid-template-columns:26px repeat(7,1fr);gap:2px;align-items:center}
+.week-ind{display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:7px;padding:2px 1px;min-height:40px}
+.week-ind-v{font-size:11px;font-weight:700;line-height:1}
+.week-ind-q{font-size:7px;color:#1e293b;line-height:1}
+.day-cell{border-radius:7px;padding:3px 1px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:40px;transition:all .12s;border:1.5px solid transparent;-webkit-tap-highlight-color:transparent;user-select:none}
+.day-cell:active{opacity:.7;transform:scale(.95)}
+.day-cell.other{opacity:.08;cursor:default;pointer-events:none}
+.day-num{font-size:11px;font-family:monospace}
+.day-icon{font-size:9px;line-height:1;margin-top:1px}
+/* Breakdown */
+.breakdown{margin:0 8px 10px;background:rgba(0,0,0,.2);border-radius:10px;padding:9px 11px;border:var(--bdr)}
+.sec-ttl{font-size:8px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;font-family:monospace}
+.bk-row{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.bk-row:last-child{margin-bottom:0}
+.bk-lbl{font-size:8px;color:var(--dim);width:50px;flex-shrink:0;font-family:monospace}
+.bk-bar-w{flex:1;background:var(--faint);border-radius:99px;height:4px;overflow:hidden}
+.bk-bar{height:100%;border-radius:99px;transition:width .4s}
+.bk-val{font-size:8px;width:20px;text-align:right;flex-shrink:0;font-family:monospace}
+.bk-ico{width:14px;text-align:center;font-size:9px;flex-shrink:0}
+/* Festivos */
+.festivos{margin:0 8px 12px;background:rgba(193,0,42,.05);border-radius:10px;padding:9px 11px;border:1px solid rgba(193,0,42,.1)}
+.fest-row{display:flex;gap:8px;margin-bottom:2px;font-size:10px;color:var(--redl);align-items:center}
+.fest-day{font-family:monospace;color:#7f1d1d;width:24px;flex-shrink:0}
+/* GCal bar */
+.gcal-bar{margin:0 8px 12px;border-radius:10px;padding:9px 12px;background:rgba(66,133,244,.06);border:1px solid rgba(66,133,244,.15);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.gcal-status{font-size:10px;color:var(--sub)}
+.gcal-status strong{color:var(--text)}
+.gcal-btn{background:rgba(66,133,244,.15);border:1px solid rgba(66,133,244,.3);color:#93c5fd;border-radius:8px;padding:5px 10px;font-size:9px;cursor:pointer;font-family:monospace;letter-spacing:.5px;-webkit-tap-highlight-color:transparent}
+.gcal-btn:active{opacity:.7}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.syncing{animation:pulse 1.5s infinite}
+/* Legend */
+.legend{border-top:var(--bdr);padding:8px 12px 12px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.leg-item{display:flex;align-items:center;gap:4px;font-size:9px;color:var(--dim)}
+/* Modal overlay */
+.modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal{background:#111827;border-radius:16px;padding:20px;width:100%;max-width:360px;border:1px solid rgba(225,198,122,.15)}
+.modal h2{font-size:15px;color:var(--text);margin-bottom:6px}
+.modal p{font-size:10px;color:var(--sub);margin-bottom:10px;line-height:1.5}
+.modal input{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px 12px;color:var(--text);font-family:monospace;font-size:11px;margin-bottom:12px}
+.modal input:focus{outline:none;border-color:rgba(225,198,122,.35)}
+.steps{background:rgba(0,0,0,.3);border-radius:8px;padding:10px 12px;margin-bottom:12px}
+.steps ol{padding-left:16px}
+.steps li{font-size:10px;color:var(--sub);margin-bottom:4px;line-height:1.4}
+.steps a{color:#93c5fd;text-decoration:none}
+.steps strong{color:var(--text)}
+.modal-btns{display:flex;gap:8px}
+.btn-p{flex:1;background:var(--red);border:none;color:#fff;border-radius:9px;padding:10px;font-size:12px;cursor:pointer;font-family:Georgia,serif}
+.btn-s{background:var(--faint);border:1px solid rgba(255,255,255,.1);color:var(--sub);border-radius:9px;padding:10px 14px;font-size:12px;cursor:pointer}
+.footer{text-align:center;margin-top:8px;font-size:8px;color:#1e293b}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="brand-tag">ScotiaTech · GBS</div>
+    <div class="brand-title">Office Tracker</div>
+    <div class="brand-note">Festivos 🇨🇴 automáticos · Meta = 8 − semanas con festivo</div>
+  </div>
+  <div class="card">
+    <div class="nav">
+      <button class="nav-btn" id="btn-prev">‹</button>
+      <div class="nav-title" id="nav-title"></div>
+      <button class="nav-btn" id="btn-next">›</button>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="prog-wrap"><div class="prog-bar"><div class="prog-fill" id="prog-fill"></div></div><div class="prog-lbl" id="prog-lbl"></div></div>
+    <div id="prediction"></div>
+    <div class="day-hdrs" id="day-hdrs"></div>
+    <div class="weeks" id="weeks"></div>
+    <div class="breakdown" id="breakdown"></div>
+    <div id="festivos"></div>
+    <div class="gcal-bar" id="gcal-bar"></div>
+    <div class="legend">
+      <div class="leg-item"><span>🇨🇴</span><span>Festivo (auto)</span></div>
+      <div class="leg-item"><span>🏢</span><span>Fui a oficina</span></div>
+      <div class="leg-item"><span>🏖️</span><span>Vacación extra</span></div>
+    </div>
+  </div>
+  <div class="footer">Meta = 8 − semanas con festivo/vacación · Solo cuentan días del mes visible · Datos en este dispositivo</div>
+</div>
+
+<!-- Modal -->
+<div class="modal-ov" id="modal" style="display:none">
+  <div class="modal">
+    <h2>🔗 Conectar Google Calendar</h2>
+    <p>Necesitas un <strong>Client ID</strong> de Google Cloud. Sigue estos pasos:</p>
+    <div class="steps">
+      <ol>
+        <li>Ve a <a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com</a> y crea un proyecto</li>
+        <li>Busca <strong>Google Calendar API</strong> y actívala</li>
+        <li>Ve a <strong>Credenciales → Crear → OAuth 2.0</strong> → Aplicación web</li>
+        <li>En <strong>"Orígenes JS autorizados"</strong> agrega la URL de tu GitHub Pages<br><span style="font-size:9px;color:#334155">Ejemplo: https://tuusuario.github.io</span></li>
+        <li>Copia el <strong>Client ID</strong> y pégalo aquí:</li>
+      </ol>
+    </div>
+    <input type="text" id="cid-input" placeholder="xxxxxxxxxxxx.apps.googleusercontent.com"/>
+    <div class="modal-btns">
+      <button class="btn-s" id="modal-cancel">Cancelar</button>
+      <button class="btn-p" id="modal-save">Guardar y conectar</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+// ═══════════════════════════════════════════════════════════
+// CONSTANTS & STATE
+// ═══════════════════════════════════════════════════════════
+const BASE=8, LS_DATA='ot-data-v2', LS_CID='ot-gcal-cid', LS_TOK='ot-gcal-token';
+const APP_ID='scotiatech-office-tracker';
+const SCOPE='https://www.googleapis.com/auth/calendar.events';
+const MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const DAYS=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+
+function today(){ const d=new Date(); d.setHours(0,0,0,0); return d; }
+let now=today();   // se refresca al volver a la app y al cambiar de día
+const S={ year:now.getFullYear(), month:now.getMonth(), data:{}, evIds:{}, pending:{},
+          token:null, tokenExp:0, cid:null, syncing:0, authError:false };
+
+// ═══════════════════════════════════════════════════════════
+// DATE HELPERS
+// ═══════════════════════════════════════════════════════════
+const p2=n=>String(n).padStart(2,'0');
+function toKey(d){ return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`; }
+function fromKey(k){ const [y,m,d]=k.split('-').map(Number); return new Date(y,m-1,d); }
+function addD(d,n){ const r=new Date(d); r.setDate(r.getDate()+n); return r; }
+function monday(d){ const r=new Date(d); r.setHours(0,0,0,0); const w=r.getDay(); r.setDate(r.getDate()+(w===0?-6:1-w)); return r; }
+function nextMon(d){ const w=d.getDay(); return w===1?new Date(d):addD(d,w===0?1:8-w); }
+function isWeekend(d){ const w=d.getDay(); return w===0||w===6; }
+function inMonth(d,y,mo){ return d.getFullYear()===y&&d.getMonth()===mo; }
+
+// ═══════════════════════════════════════════════════════════
+// COLOMBIAN HOLIDAYS
+// ═══════════════════════════════════════════════════════════
+const _HC={};
+function easter(y){
+  const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4;
+  const f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30;
+  const i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451);
+  return new Date(y,Math.floor((h+l-7*m+114)/31)-1,((h+l-7*m+114)%31)+1);
+}
+function holidays(y){
+  if(_HC[y]) return _HC[y];
+  const M={};
+  const a=(d,n)=>{ M[toKey(d)]=n; };
+  const e=(mo,da,n)=>a(nextMon(new Date(y,mo,da)),n);
+  a(new Date(y,0,1),'Año Nuevo');   a(new Date(y,4,1),'Día del Trabajo');
+  a(new Date(y,6,20),'Independencia'); a(new Date(y,7,7),'Batalla de Boyacá');
+  a(new Date(y,11,8),'Inmaculada Concepción'); a(new Date(y,11,25),'Navidad');
+  e(0,6,'Reyes Magos'); e(2,19,'San José');
+  e(5,29,'San Pedro y San Pablo'); e(7,15,'Asunción de la Virgen');
+  e(9,12,'Día de la Raza'); e(10,1,'Todos los Santos'); e(10,11,'Indep. Cartagena');
+  const ea=easter(y);
+  a(addD(ea,-3),'Jueves Santo'); a(addD(ea,-2),'Viernes Santo');
+  a(nextMon(addD(ea,39)),'Ascensión'); a(nextMon(addD(ea,60)),'Corpus Christi');
+  a(nextMon(addD(ea,68)),'Sagrado Corazón');
+  _HC[y]=M; return M;
+}
+function getHol(d){ return holidays(d.getFullYear())[toKey(d)]||null; }
+
+// ═══════════════════════════════════════════════════════════
+// STATS
+// Regla de mes cruzado: cada semana se muestra completa, pero solo
+// cuentan los días que pertenecen al mes visible (visitas, festivos
+// y vacaciones). Así ningún día suma en dos meses a la vez.
+// ═══════════════════════════════════════════════════════════
+function weeks(y,mo){
+  const last=new Date(y,mo+1,0),ws=[];
+  let m=monday(new Date(y,mo,1));
+  while(m<=last){ ws.push({mon:new Date(m),sun:addD(m,6)}); m=addD(m,7); }
+  return ws;
+}
+function stats(){
+  const {year,month,data}=S;
+  const ws=weeks(year,month).map(w=>{
+    let hasAdj=false,visited=0,openDays=0;
+    for(let d=new Date(w.mon);d<=w.sun;d=addD(d,1)){
+      if(!inMonth(d,year,month)) continue;
+      const st=data[toKey(d)], h=getHol(d);
+      if(h||st==='vacation') hasAdj=true;
+      if(st==='office') visited++;
+      else if(d>=now&&!isWeekend(d)&&!h&&st!=='vacation') openDays++;
+    }
+    return{...w,hasAdj,quota:hasAdj?1:2,visited,openDays};
+  });
+  const adjN=ws.filter(w=>w.hasAdj).length;
+  const target=Math.max(0,BASE-adjN);
+  const visited=ws.reduce((s,w)=>s+w.visited,0);
+  const remaining=Math.max(0,target-visited);
+  const pct=target>0?Math.min(100,Math.round(visited/target*100)):100;
+  const done=visited>=target;
+  const active=ws.filter(w=>w.sun>=now);
+  // Lo que aún se puede sumar: cuota pendiente de cada semana, limitada por los días hábiles que quedan
+  const canMax=active.reduce((s,w)=>s+Math.min(Math.max(0,w.quota-w.visited),w.openDays),0);
+  const mHols=Object.entries(holidays(year)).filter(([k])=>k.startsWith(`${year}-${p2(month+1)}`)).sort();
+  const upHols=mHols.map(([k,n])=>({date:fromKey(k),name:n})).filter(h=>h.date>now);
+  return{ws,adjN,target,visited,remaining,pct,done,active,canMax,upHols,mHols};
+}
+
+// ═══════════════════════════════════════════════════════════
+// STORAGE
+// ═══════════════════════════════════════════════════════════
+function save(){
+  try{ localStorage.setItem(LS_DATA,JSON.stringify({data:S.data,evIds:S.evIds,pending:S.pending})); }catch(_){}
+}
+function load(){
+  try{
+    const r=localStorage.getItem(LS_DATA);
+    if(r){
+      const p=JSON.parse(r); S.data=p.data||{}; S.evIds=p.evIds||{};
+      if(p.pending) S.pending=p.pending;
+      else{ // migración desde v1: lo marcado sin evento en Calendar queda pendiente de subir
+        Object.keys(S.data).forEach(k=>{ if(!S.evIds[k]) S.pending[k]=true; });
+      }
+    }
+  }catch(_){}
+  S.cid=localStorage.getItem(LS_CID)||null;
+  try{
+    const t=JSON.parse(localStorage.getItem(LS_TOK)||'null');
+    if(t&&t.exp>Date.now()){ S.token=t.token; S.tokenExp=t.exp; }
+  }catch(_){}
+}
+function setToken(tok,expiresIn){
+  S.token=tok; S.tokenExp=Date.now()+(Math.max(120,expiresIn)-60)*1000; S.authError=false;
+  try{ localStorage.setItem(LS_TOK,JSON.stringify({token:tok,exp:S.tokenExp})); }catch(_){}
+}
+function clearToken(){ S.token=null; S.tokenExp=0; try{ localStorage.removeItem(LS_TOK); }catch(_){} }
+function hasToken(){
+  if(S.token&&Date.now()<S.tokenExp) return true;
+  if(S.token) clearToken();
+  return false;
+}
+const pendingCount=()=>Object.keys(S.pending).length;
+
+// ═══════════════════════════════════════════════════════════
+// GOOGLE AUTH (GIS token client)
+// ═══════════════════════════════════════════════════════════
+let tokenClient=null, tokenClientCid=null;
+
+function gisReady(){ return !!window.google?.accounts?.oauth2; }
+function whenGIS(){
+  if(gisReady()) return Promise.resolve(true);
+  return new Promise(res=>{ let n=0; const t=setInterval(()=>{ if(gisReady()||++n>50){ clearInterval(t); res(gisReady()); } },100); });
+}
+function initGIS(){
+  if(!S.cid||!gisReady()) return false;
+  if(tokenClient&&tokenClientCid===S.cid) return true;
+  tokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:S.cid, scope:SCOPE,
+    callback:r=>{
+      if(r.error){ S.authError=true; render(); return; }
+      setToken(r.access_token,+r.expires_in||3600);
+      syncMonth();
+    },
+    error_callback:()=>{ S.authError=true; render(); }
+  });
+  tokenClientCid=S.cid;
+  return true;
+}
+async function connect(){
+  if(!S.cid){ showModal(); return; }
+  if(!await whenGIS()){ alert('No se pudo cargar el inicio de sesión de Google. Revisa la conexión e inténtalo de nuevo.'); return; }
+  initGIS();
+  tokenClient.requestAccessToken({prompt:''}); // solo pide consentimiento la primera vez
+}
+
+// ═══════════════════════════════════════════════════════════
+// GOOGLE CALENDAR API
+// ═══════════════════════════════════════════════════════════
+class AuthError extends Error{}
+
+async function gcal(method,path,body){
+  if(!hasToken()) throw new AuthError('sin token');
+  const r=await fetch(`https://www.googleapis.com/calendar/v3${path}`,{
+    method,
+    headers:{'Authorization':`Bearer ${S.token}`,'Content-Type':'application/json'},
+    body:body?JSON.stringify(body):undefined
+  });
+  if(r.status===401){ clearToken(); S.authError=true; throw new AuthError('token vencido'); }
+  if(r.status===404||r.status===410) return {notFound:true};
+  if(r.status===204) return {};
+  if(!r.ok) throw new Error(`GCal ${r.status}`);
+  return r.json();
+}
+
+function evBody(key,type){
+  return {
+    summary: type==='office'?'🏢 Oficina ScotiaTech':'🏖️ Día libre · ScotiaTech',
+    status:'confirmed',
+    start:{date:key}, end:{date:toKey(addD(fromKey(key),1))},
+    extendedProperties:{private:{appId:APP_ID,type}}
+  };
+}
+
+// Lleva a Calendar el estado local de un día: crea, actualiza o borra. Nunca duplica.
+async function pushDay(key){
+  const type=S.data[key]||null, id=S.evIds[key];
+  if(id&&type){
+    const r=await gcal('PATCH',`/calendars/primary/events/${encodeURIComponent(id)}`,evBody(key,type));
+    if(r?.notFound){ delete S.evIds[key]; return pushDay(key); }
+  }else if(id&&!type){
+    await gcal('DELETE',`/calendars/primary/events/${encodeURIComponent(id)}`);
+    delete S.evIds[key];
+  }else if(!id&&type){
+    const r=await gcal('POST','/calendars/primary/events',evBody(key,type));
+    if(r?.id) S.evIds[key]=r.id;
+  }
+  delete S.pending[key]; save();
+}
+
+// Cola: las llamadas a Calendar se ejecutan una por una (evita carreras con toques rápidos)
+let chain=Promise.resolve();
+function enqueue(fn){
+  chain=chain.then(fn).catch(e=>{ if(!(e instanceof AuthError)) console.error(e); render(); });
+  return chain;
+}
+
+// Reconciliación del mes visible:
+// - Días con cambios locales pendientes → gana el teléfono.
+// - Días sin cambios pendientes → gana Calendar (incluye borrados hechos allá).
+// - Eventos duplicados del mismo día → se deja uno y se borran los demás.
+async function reconcileMonth(year,month){
+  const prefix=`${year}-${p2(month+1)}`;
+  const tMin=encodeURIComponent(new Date(year,month,1).toISOString());
+  const tMax=encodeURIComponent(new Date(year,month+1,1).toISOString());
+  const prop=encodeURIComponent(`appId=${APP_ID}`);
+  const items=[]; let pageToken='';
+  do{
+    const r=await gcal('GET',`/calendars/primary/events?privateExtendedProperty=${prop}&timeMin=${tMin}&timeMax=${tMax}&singleEvents=true&maxResults=250${pageToken?`&pageToken=${encodeURIComponent(pageToken)}`:''}`);
+    items.push(...(r?.items||[]));
+    pageToken=r?.nextPageToken||'';
+  }while(pageToken);
+
+  const byDay={};
+  for(const ev of items){
+    const ds=ev.start?.date||ev.start?.dateTime?.slice(0,10);
+    const type=ev.extendedProperties?.private?.type;
+    if(!ds||!ds.startsWith(prefix)||(type!=='office'&&type!=='vacation')) continue;
+    (byDay[ds]=byDay[ds]||[]).push({id:ev.id,type});
+  }
+  for(const [ds,evs] of Object.entries(byDay)){
+    const keep=evs.find(e=>e.id===S.evIds[ds])||evs[0];
+    for(const e of evs) if(e!==keep) await gcal('DELETE',`/calendars/primary/events/${encodeURIComponent(e.id)}`);
+    S.evIds[ds]=keep.id;
+    if(!S.pending[ds]) S.data[ds]=keep.type;
+  }
+  for(const ds of Object.keys(S.evIds)){
+    if(ds.startsWith(prefix)&&!byDay[ds]&&!S.pending[ds]){ delete S.evIds[ds]; delete S.data[ds]; }
+  }
+  save();
+  for(const ds of Object.keys(S.pending)) await pushDay(ds);
+}
+
+async function syncMonth(){
+  if(!hasToken()){ render(); return; }
+  S.syncing++; render();
+  const {year,month}=S;
+  await enqueue(()=>reconcileMonth(year,month));
+  S.syncing--; render();
+}
+
+// ═══════════════════════════════════════════════════════════
+// TOGGLE
+//  Día hábil:            vacío → 🏢 → 🏖️ → vacío
+//  Festivo entre semana: vacío → 🏢 → vacío   (el festivo ya ajusta la meta)
+//  Fin de semana:        vacío → 🏖️ → vacío
+// ═══════════════════════════════════════════════════════════
+function toggle(date){
+  const key=toKey(date), cur=S.data[key];
+  let next;
+  if(isWeekend(date)) next=cur==='vacation'?null:'vacation';
+  else if(getHol(date)) next=cur==='office'?null:'office';
+  else next=!cur?'office':cur==='office'?'vacation':null;
+  if(next) S.data[key]=next; else delete S.data[key];
+  S.pending[key]=true; save(); render();
+  if(hasToken()) enqueue(()=>pushDay(key)).then(render);
+}
+
+// ═══════════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════════
+function render(){
+  const {year,month}=S; const s=stats();
+  const R='#c1002a',G='#e2c67a';
+
+  document.getElementById('nav-title').textContent=`${MONTHS[month]} ${year}`;
+
+  // Stats
+  document.getElementById('stats').innerHTML=[
+    {l:'Visitados',v:s.visited,c:s.done?'#4ade80':G,sub:''},
+    {l:'Meta',v:s.target,c:'#475569',sub:`${BASE}−${s.adjN}`},
+    {l:'Faltan',v:s.remaining,c:s.remaining===0?'#4ade80':'#f87171',sub:''},
+    {l:'Sem.Fest',v:s.adjN,c:'#fbbf24',sub:''},
+  ].map(x=>`<div class="stat"><div class="stat-val" style="color:${x.c}">${x.v}</div>${x.sub?`<div class="stat-sub">${x.sub}</div>`:''}<div class="stat-lbl">${x.l}</div></div>`).join('');
+
+  // Progress
+  const pf=document.getElementById('prog-fill');
+  pf.style.width=`${s.pct}%`;
+  pf.style.background=s.done?'linear-gradient(90deg,#22c55e,#4ade80)':`linear-gradient(90deg,${R},${G})`;
+  document.getElementById('prog-lbl').textContent=`${s.pct}% · ${s.visited}/${s.target}`;
+
+  // Prediction
+  const ok=s.canMax>=s.remaining;
+  document.getElementById('prediction').innerHTML=`
+  <div class="predict ${ok?'ok':'warn'}">
+    <div class="pred-ttl">📊 Predicción del mes</div>
+    <div class="pred-body">
+      <div class="pred-info">
+        Semanas restantes: <strong>${s.active.length}</strong><br>
+        Visitas posibles aún: <strong>${s.canMax}</strong><br>
+        Meta: <strong>${s.target}</strong> <span style="font-size:8px;color:#334155">(${BASE}−${s.adjN} sem.)</span>
+      </div>
+      <div class="pred-badge">
+        <div style="font-size:9px;color:#475569;margin-bottom:2px">Aún necesitas</div>
+        <div class="pred-num">${s.remaining}</div>
+        <div class="pred-hint">${ok?'✅ alcanzable':'⚠️ visitas'}</div>
+      </div>
+    </div>
+    ${s.upHols.length?`<div class="pred-hols"><div style="color:#7f1d1d;margin-bottom:3px">🇨🇴 Próximos festivos de ${MONTHS[month]}:</div>${s.upHols.map(h=>`<div style="color:#f87171;margin-bottom:1px"><span style="font-family:monospace;color:#7f1d1d;width:28px;display:inline-block">${h.date.getDate()}/${h.date.getMonth()+1}</span>${h.name} <span style="font-size:8px;color:#475569">→ meta −1</span></div>`).join('')}</div>`:''}
+  </div>`;
+
+  // Day headers
+  document.getElementById('day-hdrs').innerHTML='<div></div>'+
+    DAYS.map(d=>`<div class="day-hdr" style="color:${d==='Sáb'||d==='Dom'?'#1e293b':'#334155'}">${d}</div>`).join('');
+
+  // Weeks
+  document.getElementById('weeks').innerHTML=s.ws.map(w=>{
+    const days=Array.from({length:7},(_,i)=>addD(w.mon,i));
+    const wD=w.visited>=w.quota;
+    const iC=wD?'#22c55e':w.hasAdj?'#fbbf24':'#1e3a5f';
+    return `<div class="week-row">
+      <div class="week-ind" style="background:${iC}18;border:1px solid ${iC}40">
+        <div class="week-ind-v" style="color:${iC}">${w.visited}</div>
+        <div class="week-ind-q">/${w.quota}</div>
+      </div>
+      ${days.map((date,di)=>{
+        const inM=inMonth(date,year,month);
+        const isWE=di>=5,isTd=toKey(date)===toKey(now),colH=getHol(date),st=S.data[toKey(date)];
+        let bg='transparent',tc=!inM?'#0f172a':isWE?'#1e293b':'#374151',bd='transparent',ic='';
+        if(isTd&&!colH&&!st){bd=R;tc='#f0e6c8';}
+        if(st==='office')  {bg='rgba(34,197,94,0.14)'; tc='#4ade80';bd='rgba(34,197,94,0.3)';  ic='🏢';}
+        if(st==='vacation'){bg='rgba(251,191,36,0.11)';tc='#fbbf24';bd='rgba(251,191,36,0.25)';ic='🏖️';}
+        if(colH)           {bg='rgba(193,0,42,0.14)';  tc='#f87171';bd='rgba(193,0,42,0.32)';  ic='🇨🇴';}
+        if(colH&&st==='office'){bg='rgba(34,197,94,0.2)';tc='#4ade80';bd='rgba(34,197,94,0.4)';ic='🏢';}
+        const pend=inM&&S.pending[toKey(date)]&&S.cid?'<span style="position:absolute;top:2px;right:3px;width:4px;height:4px;border-radius:50%;background:#93c5fd"></span>':'';
+        return `<div class="day-cell ${!inM?'other':''}" style="position:relative;background:${bg};border-color:${bd}" ${inM?`data-ts="${date.getTime()}"`:''}>
+          ${pend}
+          <span class="day-num" style="font-weight:${isTd?700:400};color:${tc}">${date.getDate()}</span>
+          ${ic?`<span class="day-icon">${ic}</span>`:''}
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+
+  // Breakdown
+  document.getElementById('breakdown').innerHTML='<div class="sec-ttl">Desglose semanal</div>'+
+    s.ws.map(w=>{
+      const sl=`${w.mon.getDate()}/${w.mon.getMonth()+1}`,el=`${w.sun.getDate()}/${w.sun.getMonth()+1}`;
+      const wD=w.visited>=w.quota,bC=wD?'#22c55e':w.hasAdj?'#fbbf24':R;
+      return `<div class="bk-row">
+        <div class="bk-lbl">${sl}–${el}</div>
+        <div class="bk-bar-w"><div class="bk-bar" style="width:${w.quota>0?Math.min(100,w.visited/w.quota*100):100}%;background:${bC}"></div></div>
+        <div class="bk-val" style="color:${wD?'#4ade80':w.hasAdj?'#fbbf24':'#475569'}">${w.visited}/${w.quota}</div>
+        <div class="bk-ico">${wD?'✅':w.hasAdj?'🇨🇴':''}</div>
+      </div>`;
+    }).join('');
+
+  // Festivos
+  const festEl=document.getElementById('festivos');
+  if(s.mHols.length){
+    festEl.innerHTML='<div class="festivos"><div class="sec-ttl" style="color:#7f1d1d">🇨🇴 Festivos de '+MONTHS[month]+'</div>'+
+      s.mHols.map(([k,n])=>{const d=fromKey(k),p=d<now;return `<div class="fest-row" style="opacity:${p?.5:1}"><span class="fest-day">${d.getDate()}</span><span>${n}</span>${p?'<span style="font-size:8px;color:#475569;margin-left:4px">· pasado</span>':''}</div>`;}).join('')+'</div>';
+  } else festEl.innerHTML='';
+
+  // GCal bar
+  const gb=document.getElementById('gcal-bar');
+  const pc=pendingCount();
+  if(hasToken()){
+    gb.innerHTML=`<div class="gcal-status">📅 Google Calendar <strong>conectado</strong>${S.syncing?' · sincronizando...':pc?` · ${pc} por subir`:''}</div>
+    <button class="gcal-btn ${S.syncing?'syncing':''}" id="btn-sync">${S.syncing?'⏳ Sync...':'↻ Sincronizar'}</button>`;
+  } else if(S.cid){
+    gb.innerHTML=`<div class="gcal-status">📅 Sesión de Google <span style="color:#fbbf24">vencida</span>${pc?` · ${pc} cambio${pc>1?'s':''} por subir`:''}<br><span id="btn-cid" style="font-size:8px;color:#475569;text-decoration:underline;cursor:pointer">Cambiar Client ID</span></div>
+    <button class="gcal-btn" id="btn-reconnect">Reconectar</button>`;
+  } else {
+    gb.innerHTML=`<div class="gcal-status">📅 Google Calendar <span style="color:#475569">desconectado</span></div>
+    <button class="gcal-btn" id="btn-connect">Conectar →</button>`;
+  }
+
+  // Re-bind dynamic events
+  document.querySelectorAll('.day-cell[data-ts]').forEach(el=>{
+    el.addEventListener('click',()=>toggle(new Date(+el.dataset.ts)));
+  });
+  document.getElementById('btn-connect')?.addEventListener('click',showModal);
+  document.getElementById('btn-cid')?.addEventListener('click',showModal);
+  document.getElementById('btn-reconnect')?.addEventListener('click',connect);
+  document.getElementById('btn-sync')?.addEventListener('click',syncMonth);
+}
+
+// ═══════════════════════════════════════════════════════════
+// MODAL
+// ═══════════════════════════════════════════════════════════
+function showModal(){ document.getElementById('cid-input').value=S.cid||''; document.getElementById('modal').style.display='flex'; }
+function hideModal(){ document.getElementById('modal').style.display='none'; }
+
+function goMonth(delta){
+  S.month+=delta;
+  if(S.month<0){S.month=11;S.year--;} else if(S.month>11){S.month=0;S.year++;}
+  render();
+  if(hasToken()) syncMonth();
+}
+document.getElementById('btn-prev').addEventListener('click',()=>goMonth(-1));
+document.getElementById('btn-next').addEventListener('click',()=>goMonth(1));
+document.getElementById('modal-cancel').addEventListener('click',hideModal);
+document.getElementById('modal').addEventListener('click',e=>{ if(e.target===e.currentTarget) hideModal(); });
+document.getElementById('modal-save').addEventListener('click',()=>{
+  const cid=document.getElementById('cid-input').value.trim(); if(!cid) return;
+  if(cid!==S.cid){ clearToken(); tokenClient=null; }
+  S.cid=cid; localStorage.setItem(LS_CID,cid); hideModal();
+  connect();
+});
+
+// ═══════════════════════════════════════════════════════════
+// "HOY" VIVO: refresca al volver a la app y al pasar la medianoche
+// ═══════════════════════════════════════════════════════════
+function refreshToday(){
+  const t=today();
+  if(t.getTime()!==now.getTime()){ now=t; render(); }
+}
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden) return;
+  refreshToday(); render();
+  if(hasToken()) syncMonth();
+});
+setInterval(refreshToday,60*1000);
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+load();
+render();
+whenGIS().then(()=>{ if(S.cid) initGIS(); });
+if(hasToken()) syncMonth();
+</script>
+</body>
+</html>
