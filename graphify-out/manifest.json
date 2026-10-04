@@ -1,33 +1,33 @@
 {
   "manifest.json": {
-    "mtime": 1791070830.338806,
-    "seen": 1791076249.6345427,
-    "ast_hash": "ce035097f3b426628f1e695fc5e301cf",
-    "semantic_hash": "ce035097f3b426628f1e695fc5e301cf"
+    "mtime": 1791076992.128263,
+    "seen": 1791091488.1229777,
+    "ast_hash": "8a2eead65d1559b51edc41702677610a",
+    "semantic_hash": "8a2eead65d1559b51edc41702677610a"
   },
   "sw.js": {
-    "mtime": 1791070830.3225977,
-    "seen": 1791076249.6345472,
-    "ast_hash": "948f8c43dd152b726fc8008de4ab34c1",
-    "semantic_hash": "948f8c43dd152b726fc8008de4ab34c1"
+    "mtime": 1791091206.018725,
+    "seen": 1791091488.1229827,
+    "ast_hash": "c594b7aacc8b62eff45ea5713d9801d1",
+    "semantic_hash": "c594b7aacc8b62eff45ea5713d9801d1"
   },
   "CLAUDE.md": {
-    "mtime": 1791075992.5074425,
-    "seen": 1791076249.63455,
-    "ast_hash": "59d2b82c88f80b7056317f6e00be7415",
-    "semantic_hash": "59d2b82c88f80b7056317f6e00be7415"
+    "mtime": 1791091404.4821289,
+    "seen": 1791091488.1229854,
+    "ast_hash": "1dee485579dea2c6b2d0592b78d9e389",
+    "semantic_hash": "1dee485579dea2c6b2d0592b78d9e389"
   },
   "README.md": {
-    "mtime": 1791070830.3307018,
-    "seen": 1791076249.6345518,
-    "ast_hash": "c66ec96ec715390b970ad1f2d2e58b66",
-    "semantic_hash": "c66ec96ec715390b970ad1f2d2e58b66"
+    "mtime": 1791091423.2673638,
+    "seen": 1791091488.1229877,
+    "ast_hash": "409a07c93214f04d88a6aee19a716272",
+    "semantic_hash": "409a07c93214f04d88a6aee19a716272"
   },
   "index.html": {
-    "mtime": 1791070830.338806,
-    "seen": 1791076249.6345544,
-    "ast_hash": "3f99256aa2c8945fb441a4516f2d6f8e",
-    "semantic_hash": "3f99256aa2c8945fb441a4516f2d6f8e"
+    "mtime": 1791091206.018725,
+    "seen": 1791091488.1229932,
+    "ast_hash": "f7bb924395534ed79cecf843f95bae09",
+    "semantic_hash": "f7bb924395534ed79cecf843f95bae09"
   },
   "icon-192.png": {
     "mtime": 1791065278.79921,
@@ -40,5 +40,11 @@
     "seen": 1791076249.6345584,
     "ast_hash": "5263d879e8cda2b3d7152def77021f0d",
     "semantic_hash": "5263d879e8cda2b3d7152def77021f0d"
+  },
+  "docs/FIREBASE.md": {
+    "mtime": 1791091423.2673638,
+    "seen": 1791091488.1229901,
+    "ast_hash": "171b38a218d3b57cc011f988f61e85dc",
+    "semantic_hash": "171b38a218d3b57cc011f988f61e85dc"
   }
 }

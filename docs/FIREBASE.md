@@ -2,7 +2,7 @@
 
 Esta guía explica, paso a paso, qué hay que hacer para pasar de la sincronización actual (casi en tiempo real **con la app abierta**) a una sincronización **instantánea**, con **avisos aunque la app esté cerrada**.
 
-> **Estado:** la **fase A está implementada** (v13) en el proyecto `office-tracker-510522`. Las fases B y C son la guía para cuando decidas hacerlas. Cada fase dice qué haces tú (consolas de Google y Firebase) y qué cambia en el código.
+> **Estado:** la **fase A está implementada** (desde v13; optimizada en v14) en el proyecto `office-tracker-510522`. Las fases B y C son la guía para cuando decidas hacerlas. Cada fase dice qué haces tú (consolas de Google y Firebase) y qué cambia en el código.
 
 ---
 
@@ -23,7 +23,7 @@ Esta guía explica, paso a paso, qué hay que hacer para pasar de la sincronizac
 
 ## 1. Cómo funciona hoy y qué cambiaría
 
-### Hoy (v12)
+### Sin Firebase (modo anterior, sigue disponible)
 
 ```
  Celular ──┐                         ┌── PC
@@ -188,7 +188,7 @@ Lo implementado:
 4. **Modo sin conexión:** Firestore guarda una copia local; lo que marques sin internet se sube solo al volver.
 5. **Migración automática:** la primera vez sube a Firestore lo que tengas en el dispositivo (días e historial), sin duplicar.
 6. **Google Calendar y la hoja** pasan a ser **copias**: el dispositivo que hace un cambio lo escribe también ahí, para los avisos y el log de auditoría. Para esto sigue haciendo falta el permiso de Calendar y Drive (el botón **Reconectar** de hoy), pero **solo para escribir copias**: si la sesión de Calendar vence, la sincronización entre dispositivos **sigue funcionando** por Firestore.
-7. La detección cada 10 s se mantiene, pero solo para cambios hechos **directamente en Google Calendar** (los cambios entre dispositivos llegan al instante por Firestore).
+7. **Menos consultas (v14):** con el tiempo real activo, la detección revisa solo Google Calendar y cada **60 s**, para cambios hechos **directamente allí**. Ya no consulta Drive ni lee la hoja, porque los cambios entre dispositivos y el historial llegan al instante por Firestore. La hoja **se sigue escribiendo** igual.
 8. **Quién gana si hay diferencias:** cada día en Firestore guarda la hora del último cambio (`ts`) y gana el más reciente. Si un evento se editó en Google Calendar **después** del último cambio en Firestore, se importa como cambio de origen *Calendar*. Si no, Firestore manda y se corrige la copia en Calendar.
 9. **Migración segura:** un dispositivo nuevo espera la primera respuesta real del servidor antes de subir lo que tiene guardado, y solo sube los días que Firestore no tiene (no pisa datos más nuevos).
 
@@ -350,7 +350,7 @@ Los valores exactos están en [firebase.google.com/pricing](https://firebase.goo
 
 ## 10. Cómo volver atrás
 
-- La versión actual (v12) queda en el historial de git. Volver es revertir los commits de Firebase y publicar.
+- La versión sin Firebase (v12) queda en el historial de git. Volver es revertir los commits de Firebase y publicar.
 - Tus datos siguen en **Google Calendar** y en la **hoja del log** en todo momento, así que no se pierde nada.
 - Para apagar Firebase: consola de Firebase → ⚙️ **Configuración del proyecto** → **General** → al final, **Eliminar proyecto**. Si Firebase se agregó a tu proyecto de Google Cloud existente, revisa antes que esa opción no borre también el Client ID; en ese caso basta con desactivar Authentication y borrar la base de datos de Firestore.
 - Para dejar de pagar Blaze: vuelve al plan Spark desde **Uso y facturación**. Las funciones dejan de correr.

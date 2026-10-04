@@ -1,110 +1,124 @@
-# Graph Report - office-tracker  (2026-10-03)
+# Graph Report - office-tracker  (2026-10-04)
 
 ## Corpus Check
-- Corpus is ~5,060 words - fits in a single context window. You may not need a graph.
+- 6 files · ~14,439 words
+- Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 97 nodes · 179 edges · 9 communities
-- Extraction: 80% EXTRACTED · 20% INFERRED · 0% AMBIGUOUS · INFERRED: 36 edges (avg confidence: 0.92)
-- Token cost: 157,286 input · 0 output
+- 135 nodes · 192 edges · 16 communities (10 shown, 2 thin omitted)
+- Extraction: 82% EXTRACTED · 18% INFERRED · 0% AMBIGUOUS · INFERRED: 34 edges (avg confidence: 0.9)
+- Token cost: 145,887 input · 0 output
 
 ## Community Hubs (Navigation)
-- Reminders & Deep Links
-- PWA Manifest & Branding
-- Change Flow & Undo
-- Holidays & Quota Math
-- UI Rendering & Auth
-- State & Calendar Setup
-- Two-Way Calendar Sync
-- Deployment & Install
-- 192px App Icon
+- Conceptos de arquitectura
+- APIs de Google y hoja del log
+- Manifest e ícono PWA
+- Estado y Firebase en vivo
+- Meta, festivos y avisos
+- Reconciliación con Calendar
+- Guía del desarrollador
+- Cola de sync y Deshacer
+- Login Google (GIS)
+- Ícono 192
+- Animaciones
+- Render completo
 
 ## God Nodes (most connected - your core abstractions)
-1. `render()` - 17 edges
-2. `S (global state object)` - 10 edges
-3. `save()` - 10 edges
-4. `gcal()` - 10 edges
+1. `gcal()` - 14 edges
+2. `syncAll()` - 11 edges
+3. `reconcileMonth()` - 10 edges
+4. `reconcileMonthFS()` - 10 edges
 5. `pushDay()` - 10 edges
-6. `reconcileMonth()` - 10 edges
-7. `syncRemindersForDate()` - 9 edges
-8. `syncAll()` - 9 edges
-9. `applyChange()` - 9 edges
-10. `stats()` - 8 edges
+6. `save()` - 10 edges
+7. `syncSheet()` - 9 edges
+8. `applyChange()` - 7 edges
+9. `Phase A: Firestore Instant Sync (implemented v13)` - 7 edges
+10. `enqueue()` - 6 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `Sync conflict rule (phone wins if pending, else Calendar)` --semantically_similar_to--> `Two-way Google Calendar sync`  [INFERRED] [semantically similar]
+- `Phase B: Push Notifications with App Closed (FCM + Cloud Functions)` --semantically_similar_to--> `Reminder Events (10:00 and 16:30, 21-day horizon)`  [INFERRED] [semantically similar]
+  docs/FIREBASE.md → CLAUDE.md
+- `Phase C: Calendar Webhook (calendarWebhook, renewWatch, oauthCallback)` --semantically_similar_to--> `Change Detection Polling (checkChanges every 10s, calCursor)`  [INFERRED] [semantically similar]
+  docs/FIREBASE.md → CLAUDE.md
+- `README (user-facing spec, Spanish)` --references--> `Bump VERSION (sw.js) and APP_VER (index.html) together`  [INFERRED]
   README.md → CLAUDE.md
-- `Logica de la meta` --semantically_similar_to--> `Monthly quota logic (8 - adjusted weeks)`  [INFERRED] [semantically similar]
+- `README (user-facing spec, Spanish)` --references--> `Colombian Holidays Computation (holidays(y), Ley Emiliani, Easter)`  [INFERRED]
   README.md → CLAUDE.md
-- `Deshacer y auditoria` --semantically_similar_to--> `Change flow with 5s undo window`  [INFERRED] [semantically similar]
-  README.md → CLAUDE.md
-- `Avisos 10:00 a.m. y 4:30 p.m.` --semantically_similar_to--> `Reminder events (10:00 / 16:30, 21-day horizon)`  [INFERRED] [semantically similar]
-  README.md → CLAUDE.md
-- `Deshacer y auditoria` --semantically_similar_to--> `Audit log (source, timestamp, change id, device id)`  [INFERRED] [semantically similar]
+- `Sync and Version Indicators (topbar, chip, step label)` --conceptually_related_to--> `Google Calendar Two-way Sync (syncAll/reconcileMonth)`  [INFERRED]
   README.md → CLAUDE.md
 
 ## Import Cycles
 - None detected.
 
 ## Hyperedges (group relationships)
-- **Calendar sync pipeline (serialized via enqueue)** — index_syncall, index_enqueue, index_ensurecalendar, index_reconcilemonth, index_reconcilereminders, index_pushday, index_gcal [EXTRACTED 1.00]
-- **Local change and undo flow** — index_toggle, index_applychange, index_schedulepush, index_showundo, index_doundo, index_flushpushes [EXTRACTED 1.00]
-- **Reminder notification deep-link flow** — index_reminderbody, index_readdeeplink, index_opennotifsheet, index_verifynonce, index_syncremindersfordate [INFERRED 0.95]
+- **Full sync pipeline (syncAll stages)** — index_syncall, index_ensurecalendar, index_pullsheet, index_reconcilemonth, index_reconcilemonthfs, index_reconcilereminders, index_syncsheet, index_pushhidden [EXTRACTED 1.00]
+- **Firestore realtime sync layer** — index_fbinit, index_fbstart, index_onfsdays, index_onfslog, index_onfshidden, index_fsday, index_fslog, index_fshide [EXTRACTED 1.00]
+- **Local day change with undo and deferred push** — index_toggle, index_applychange, index_schedulepush, index_showundo, index_doundo, index_pushday [INFERRED 0.85]
+- **Multi-layer Sync: Calendar, Sheet, Firestore** — claude_calendar_sync, claude_history_spreadsheet, claude_firebase_realtime, claude_change_detection_polling [INFERRED 0.85]
+- **Firebase Rollout Phases A/B/C** — docs_firebase_phase_a_firestore, docs_firebase_phase_b_push, docs_firebase_phase_c_calendar_webhook [EXTRACTED 1.00]
+- **Monthly Goal Tracking and Mandatory-day Alerts** — claude_quota_logic, claude_colombian_holidays, claude_must_days, readme_goal_alert_levels, claude_reminders [INFERRED 0.85]
 
-## Communities (9 total, 0 thin omitted)
+## Communities (16 total, 2 thin omitted)
 
-### Community 0 - "Reminders & Deep Links"
-Cohesion: 0.18
-Nodes (17): Notification deep links with nonce verification, Reminder events (10:00 / 16:30, 21-day horizon), AuthError, clearToken(), delEvent(), desiredSlots(), gcal(), hasToken() (+9 more)
+### Community 0 - "Conceptos de arquitectura"
+Cohesion: 0.08
+Nodes (31): Audit Log (S.log with source, change id, device id), Google Calendar Two-way Sync (syncAll/reconcileMonth), Change Detection Polling (checkChanges every 10s, calCursor), Change Flow with 5s Undo Window (applyChange/schedulePush), Deep Links with Nonce Verification (verifyNonce), Firebase Real-time Mode (Firestore source of truth), History Spreadsheet 'Office Tracker · Historial' (syncSheet/pullSheet), Mandatory Days (stats open/slack/must) (+23 more)
 
-### Community 1 - "PWA Manifest & Branding"
+### Community 1 - "APIs de Google y hoja del log"
+Cohesion: 0.20
+Nodes (16): AuthError, Lightweight change polling, checkChanges(), deleteLog(), ensureCalendar(), ensureFolder(), ensureSheet(), fsHide() (+8 more)
+
+### Community 2 - "Manifest e ícono PWA"
 Cohesion: 0.12
 Nodes (15): PWA App Icon 512x512, Brand Palette (Crimson, Gold, Dark Navy), Office Building Symbol, background_color, description, display, icons, id (+7 more)
 
-### Community 2 - "Change Flow & Undo"
+### Community 3 - "Estado y Firebase en vivo"
 Cohesion: 0.20
-Nodes (15): Audit log (source, timestamp, change id, device id), Change flow with 5s undo window, applyChange(), dayBody(), doUndo(), flushPushes(), fromKey(), hideUndo() (+7 more)
+Nodes (12): App state object S (data, evIds, pending, log, hidden), applyChange(), disconnect(), fbStart(), First-server-snapshot migration, fsDay(), onFsDays(), onFsHidden() (+4 more)
 
-### Community 3 - "Holidays & Quota Math"
-Cohesion: 0.27
-Nodes (10): Monthly quota logic (8 - adjusted weeks), easter(), getHol(), holidays(), stats(), toKey(), Festivos Colombia (automatic holidays), Ley Emiliani (holidays moved to Monday) (+2 more)
+### Community 4 - "Meta, festivos y avisos"
+Cohesion: 0.13
+Nodes (12): Colombian holiday calendar (Emiliani law, Easter-based), desiredSlots(), getHol(), holidays(), Monthly office attendance goal / mandatory days, Reminder deep link with nonce verification, reminderBody(), reminderTitle() (+4 more)
 
-### Community 4 - "UI Rendering & Auth"
-Cohesion: 0.27
-Nodes (10): connect(), goMonth(), initGIS(), openDaySheet(), openNotifSheet(), openSheet(), render(), showModal() (+2 more)
-
-### Community 5 - "State & Calendar Setup"
+### Community 5 - "Reconciliación con Calendar"
 Cohesion: 0.29
-Nodes (10): OAuth scope calendar.app.created, Global state object S (localStorage ot-data-v2, schema v3), cleanupLegacy(), ensureCalendar(), load(), S (global state object), save(), whenGIS() (+2 more)
+Nodes (11): classify(), delEvent(), explained(), Firestore as source of truth (realtime mode), fsLog(), listEvents(), logChange(), Pending-wins month reconciliation (+3 more)
 
-### Community 6 - "Two-Way Calendar Sync"
-Cohesion: 0.48
-Nodes (7): Two-way Google Calendar sync, Serialized Calendar API queue (enqueue), classify(), enqueue(), reconcileMonth(), syncAll(), Sync conflict rule (phone wins if pending, else Calendar)
+### Community 6 - "Guía del desarrollador"
+Cohesion: 0.33
+Nodes (7): CLAUDE.md (developer guide), Colombian Holidays Computation (holidays(y), Ley Emiliani, Easter), Global State Object S, Bump VERSION (sw.js) and APP_VER (index.html) together, GitHub Pages Deployment and Android Install, README (user-facing spec, Spanish), v2 Legacy Event Cleanup
 
-### Community 7 - "Deployment & Install"
-Cohesion: 0.40
-Nodes (5): Office Tracker PWA, Service worker VERSION bump on publish, Android install via Chrome Add to home screen, GitHub Pages deployment, ScotiaTech
+### Community 7 - "Cola de sync y Deshacer"
+Cohesion: 0.38
+Nodes (6): enqueue(), flushPushes(), pushDay(), schedulePush(), Serial Calendar job queue, Undo window before push
 
-### Community 8 - "192px App Icon"
+### Community 8 - "Login Google (GIS)"
+Cohesion: 0.50
+Nodes (3): cleanupLegacy(), connect(), whenGIS()
+
+### Community 9 - "Ícono 192"
 Cohesion: 1.00
 Nodes (3): icon-192.png (PWA App Icon 192px), Office Building Glyph (crimson building, gold windows, dark navy background), PWA App Icon
 
 ## Knowledge Gaps
-- **20 isolated node(s):** `id`, `scope`, `name`, `short_name`, `description` (+15 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 24 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **25 isolated node(s):** `Brand Palette (Crimson, Gold, Dark Navy)`, `Office Building Symbol`, `id`, `scope`, `name` (+20 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 53 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **2 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `render()` connect `UI Rendering & Auth` to `Reminders & Deep Links`, `Change Flow & Undo`, `Holidays & Quota Math`, `State & Calendar Setup`, `Two-Way Calendar Sync`, `Deployment & Install`?**
-  _High betweenness centrality (0.251) - this node is a cross-community bridge._
-- **Why does `stats()` connect `Holidays & Quota Math` to `UI Rendering & Auth`, `State & Calendar Setup`?**
-  _High betweenness centrality (0.106) - this node is a cross-community bridge._
-- **Why does `S (global state object)` connect `State & Calendar Setup` to `Reminders & Deep Links`, `Change Flow & Undo`, `Holidays & Quota Math`, `UI Rendering & Auth`, `Two-Way Calendar Sync`?**
-  _High betweenness centrality (0.076) - this node is a cross-community bridge._
-- **Are the 9 inferred relationships involving `S (global state object)` (e.g. with `applyChange()` and `ensureCalendar()`) actually correct?**
-  _`S (global state object)` has 9 INFERRED edges - model-reasoned connections that need verification._
-- **What connects `id`, `scope`, `name` to the rest of the system?**
-  _20 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `PWA Manifest & Branding` be split into smaller, more focused modules?**
+- **Why does `pushDay()` connect `Cola de sync y Deshacer` to `APIs de Google y hoja del log`, `Estado y Firebase en vivo`, `Meta, festivos y avisos`, `Reconciliación con Calendar`?**
+  _High betweenness centrality (0.091) - this node is a cross-community bridge._
+- **Why does `save()` connect `Estado y Firebase en vivo` to `Login Google (GIS)`, `APIs de Google y hoja del log`, `Reconciliación con Calendar`, `Cola de sync y Deshacer`?**
+  _High betweenness centrality (0.072) - this node is a cross-community bridge._
+- **Why does `syncRemindersForDate()` connect `Meta, festivos y avisos` to `Cola de sync y Deshacer`?**
+  _High betweenness centrality (0.068) - this node is a cross-community bridge._
+- **What connects `Brand Palette (Crimson, Gold, Dark Navy)`, `Office Building Symbol`, `id` to the rest of the system?**
+  _25 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `Conceptos de arquitectura` be split into smaller, more focused modules?**
+  _Cohesion score 0.08387096774193549 - nodes in this community are weakly interconnected._
+- **Should `Manifest e ícono PWA` be split into smaller, more focused modules?**
   _Cohesion score 0.11764705882352941 - nodes in this community are weakly interconnected._
+- **Should `Meta, festivos y avisos` be split into smaller, more focused modules?**
+  _Cohesion score 0.13333333333333333 - nodes in this community are weakly interconnected._
