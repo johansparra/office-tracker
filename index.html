@@ -212,6 +212,8 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 .card-link{display:inline-flex;align-items:center;gap:4px;color:var(--sync);text-decoration:none;font-size:12px}
 .card-link .ic{font-size:13px}
 .card-link:hover{text-decoration:underline}
+.rt-on{display:inline-flex;align-items:center;gap:4px;color:var(--ok);font-size:12px}
+.rt-on .ic,.gcal-link .ic,.chip .ic{font-size:12px}
 .t-office{color:var(--ok)}.t-vacation{color:var(--vac)}.t-null{color:var(--faint)}
 .badge{display:inline-flex;align-items:center;font-size:11px;font-weight:500;padding:2px 7px;border-radius:6px;white-space:nowrap}
 .b-manual{background:rgba(154,163,184,.12);color:var(--muted)}
@@ -380,6 +382,9 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 </div>
 
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js" defer></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js" defer></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js" defer></script>
 <script>
 // ═══════════════════════════════════════════════════════════
 // CONSTANTS & STATE
@@ -392,7 +397,7 @@ const APP_ID='scotiatech-office-tracker', CAL_NAME='Office Tracker', TZ='America
 // drive.file: solo archivos que crea esta app (la hoja «Office Tracker · Historial»), no el resto de tu Drive.
 const SCOPES=['https://www.googleapis.com/auth/calendar.app.created','https://www.googleapis.com/auth/calendar.calendarlist.readonly',
   'https://www.googleapis.com/auth/drive.file'];
-const APP_VER='v12';   // igual que VERSION en sw.js: súbelos juntos al publicar
+const APP_VER='v13';   // igual que VERSION en sw.js: súbelos juntos al publicar
 const HIDE_TAB='Ocultos';   // ids de registros borrados en la app (para que se oculten en todos los dispositivos)
 const SHEET_NAME='Office Tracker · Historial', SHEET_TAB='Historial', FOLDER_NAME='office-tracker';   // Mi unidad/office-tracker/
 const SCOPE=SCOPES.join(' ');
@@ -424,6 +429,7 @@ const IC={
   link:svg('<path d="M6.8 9.2a2.8 2.8 0 0 0 4 0l2-2a2.8 2.8 0 0 0-4-4l-.9.9M9.2 6.8a2.8 2.8 0 0 0-4 0l-2 2a2.8 2.8 0 0 0 4 4l.9-.9"/>'),
   x:svg('<path d="M4 4l8 8M12 4l-8 8"/>'),
   trash:svg('<path d="M2.8 4.3h10.4M6.3 4.3V2.8h3.4v1.5M4.2 4.3l.6 8.9h6.4l.6-8.9M6.8 6.8v4M9.2 6.8v4"/>'),
+  bolt:svg('<path d="M9 1.8 3.6 9h4l-.8 5.2L12.4 7H8.4z"/>'),
   sheet:svg('<rect x="2.5" y="2" width="11" height="12" rx="1.8"/><path d="M2.5 6h11M2.5 10h11M6.5 6v8"/>'),
 };
 const TYPE_UI={office:'Oficina',vacation:'Día libre',null:'Vacío'};
@@ -433,7 +439,7 @@ const tico=t=>`<span class="t-${t||'null'}">${IC[t||'null']}</span>`;
 function today(){ const d=new Date(); d.setHours(0,0,0,0); return d; }
 let now=today();
 const S={ year:now.getFullYear(), month:now.getMonth(),
-  data:{}, evIds:{}, pending:{}, log:[], logOut:[], sheetId:null, account:null, hidden:{}, hideOut:[], rem:{}, nonces:{}, skip:{}, legacy:{},
+  data:{}, evIds:{}, pending:{}, log:[], logOut:[], sheetId:null, account:null, hidden:{}, hideOut:[], fs:{}, rem:{}, nonces:{}, skip:{}, legacy:{},
   token:null, tokenExp:0, cid:null, calId:null, calChecked:false, dev:null,
   syncing:0, busy:0, step:'', lastSync:0, lastError:null, showAllLog:false };
 
@@ -578,6 +584,7 @@ const online=()=>hasToken()&&!!S.calId;
 function logChange(e){
   const entry={id:rid(4),ts:Date.now(),dev:S.dev,from:null,to:null,...e};
   S.log.push(entry);
+  fsLog(entry);
   if(S.log.length>1000) S.log.splice(0,S.log.length-1000);
   return entry;
 }
@@ -1033,9 +1040,165 @@ function deleteLog(ids){
   const del=new Set(ids);
   for(const e of S.log) if(del.has(e.id)&&!e.up) S.logOut.push(e);
   for(const id of del){ S.hidden[id]=1; S.hideOut.push({id,ts:Date.now()}); }   // se oculta también en los otros dispositivos
+  fsHide([...del]);
   S.log=S.log.filter(e=>!del.has(e.id));
   save(); render();
   if(hasToken()) enqueue(async()=>{ await syncSheet(); await pushHidden(); }).then(render);
+}
+
+// ═══════════════════════════════════════════════════════════
+// FIREBASE (tiempo real): Firestore es la fuente de verdad de los días y del historial.
+// Google Calendar y la hoja del log quedan como copias (avisos y auditoría).
+//   users/{uid}/days/{AAAA-MM-DD}  {type: office|vacation|null, ts, dev}   (null = vacío; no se borran: gana el ts mayor)
+//   users/{uid}/log/{id}           el registro del historial
+//   users/{uid}/hidden/{id}        registros borrados en la app
+// ═══════════════════════════════════════════════════════════
+const FB_CONFIG={
+  apiKey:'AIzaSyBBm17sVG5NgOfmJ50kz3iAc4cAj2TMmLQ',
+  authDomain:'office-tracker-510522.firebaseapp.com',
+  projectId:'office-tracker-510522',
+  storageBucket:'office-tracker-510522.firebasestorage.app',
+  messagingSenderId:'394992259372',
+  appId:'1:394992259372:web:b72d9a52e30cd9e03b5c89'
+};
+let fbAuth=null, fbDb=null, fbUser=null, fbUnsub=[], fbFirst={};
+const fbOn=()=>!!fbUser;
+const fbBase=()=>fbDb.collection('users').doc(fbUser.uid);
+const clean=o=>JSON.parse(JSON.stringify(o));   // Firestore no acepta campos undefined
+
+function fbInit(){
+  if(!window.firebase?.firestore) return;   // sin conexión al cargar: la app sigue como antes
+  firebase.initializeApp(FB_CONFIG);
+  fbAuth=firebase.auth(); fbDb=firebase.firestore();
+  fbDb.enablePersistence({synchronizeTabs:true}).catch(()=>{});   // copia local: funciona sin internet
+  fbAuth.onAuthStateChanged(u=>{ fbStop(); fbUser=u; if(u) fbStart(); render(); });
+  render();   // muestra «Activar tiempo real» sin esperar a que Firebase confirme la sesión
+}
+function fbErr(e){
+  console.error('[firebase]',e);
+  const c=e?.code||'';
+  S.lastError=c==='permission-denied'?'Firebase: sin permiso (revisa las reglas de Firestore, paso A5 de docs/FIREBASE.md)'
+    :c==='auth/unauthorized-domain'?'Firebase: agrega johansparra.github.io en Authentication → Dominios autorizados'
+    :c==='auth/popup-blocked'?'El navegador bloqueó la ventana de Google: permite ventanas emergentes para este sitio'
+    :`Firebase: ${e?.message||c}`;
+  render();
+}
+function fbSignIn(){
+  if(!fbAuth){ alert('No se pudo cargar Firebase. Revisa la conexión y vuelve a abrir la app.'); return; }
+  const p=new firebase.auth.GoogleAuthProvider(); p.setCustomParameters({prompt:'select_account'});
+  fbAuth.signInWithPopup(p).catch(e=>{ if(e?.code!=='auth/popup-closed-by-user'&&e?.code!=='auth/cancelled-popup-request') fbErr(e); });
+}
+function fbSignOut(){
+  if(!confirm('¿Desactivar el tiempo real en este dispositivo?\n\nTus días se quedan aquí y en Google Calendar.')) return;
+  fbAuth?.signOut();
+}
+function fbStop(){ fbUnsub.forEach(u=>u()); fbUnsub=[]; }
+function fbStart(){
+  fbFirst={days:true,log:true,hidden:true};
+  const b=fbBase();
+  // includeMetadataChanges: avisa también cuando llega la primera respuesta del servidor (aunque no haya datos)
+  const M={includeMetadataChanges:true};
+  fbUnsub.push(b.collection('days').onSnapshot(M,onFsDays,fbErr));
+  fbUnsub.push(b.collection('log').orderBy('ts','desc').limit(1000).onSnapshot(M,onFsLog,fbErr));
+  fbUnsub.push(b.collection('hidden').onSnapshot(M,onFsHidden,fbErr));
+}
+
+// ── Escrituras ──
+function fsDay(ds,type=S.data[ds]||null,ts=Date.now()){
+  if(!fbOn()) return;
+  S.fs[ds]={type,ts,dev:S.dev};
+  fbBase().collection('days').doc(ds).set({type,ts,dev:S.dev}).catch(fbErr);
+}
+function fsLog(e){
+  if(!fbOn()) return;
+  const {up,...rest}=e;
+  fbBase().collection('log').doc(e.id).set(clean(rest)).catch(fbErr);
+}
+function fsHide(ids){
+  if(!fbOn()) return;
+  const b=fbDb.batch();
+  for(const id of ids) b.set(fbBase().collection('hidden').doc(id),{ts:Date.now(),dev:S.dev});
+  b.commit().catch(fbErr);
+}
+const lastLogTs=ds=>S.log.reduce((m,e)=>e.d===ds&&e.ts>m?e.ts:m,0);
+
+// ── Lecturas en tiempo real ──
+// La migración (subir lo local que Firestore no tiene) espera la primera respuesta del servidor:
+// la caché local de un dispositivo nuevo viene vacía y no debe pisar datos más nuevos.
+const firstFromServer=(snap,k)=>{ if(!fbFirst[k]||snap.metadata.fromCache) return false; fbFirst[k]=false; return true; };
+function onFsDays(snap){
+  const first=firstFromServer(snap,'days');
+  for(const ch of snap.docChanges()){
+    if(ch.type==='removed') continue;
+    const ds=ch.doc.id, v=ch.doc.data(), fs={type:v.type||null,ts:v.ts||0,dev:v.dev};
+    const lt=S.data[ds]||null;
+    if(lt!==fs.type&&(timers[ds]||lastLogTs(ds)>fs.ts)){ fsDay(ds,lt,Math.max(Date.now(),fs.ts+1)); continue; }   // lo local es más nuevo
+    S.fs[ds]=fs;
+    if(lt!==fs.type){ if(fs.type) S.data[ds]=fs.type; else delete S.data[ds]; }
+  }
+  if(first){
+    // Primera vez en este dispositivo: se suben los días que Firestore aún no tiene
+    for(const ds of Object.keys(S.data)) if(!S.fs[ds]) fsDay(ds,S.data[ds],lastLogTs(ds)||Date.now());
+  }
+  save(); render();
+}
+function onFsLog(snap){
+  const first=firstFromServer(snap,'log');
+  const have=new Set(S.log.map(e=>e.id)), inFs=new Set();
+  for(const ch of snap.docChanges()){
+    if(ch.type==='removed') continue;
+    const e=ch.doc.data(); inFs.add(e.id);
+    if(!have.has(e.id)&&!S.hidden[e.id]){ S.log.push({...e,up:true}); have.add(e.id); }   // lo sube a la hoja el dispositivo que lo creó
+  }
+  if(first){
+    const b=fbDb.batch(); let n=0;
+    for(const e of S.log) if(!inFs.has(e.id)&&n<450){ const {up,...rest}=e; b.set(fbBase().collection('log').doc(e.id),clean(rest)); n++; }
+    if(n) b.commit().catch(fbErr);
+  }
+  S.log=S.log.filter(e=>!S.hidden[e.id]).sort((a,b)=>a.ts-b.ts);
+  if(S.log.length>1000) S.log.splice(0,S.log.length-1000);
+  save(); render();
+}
+function onFsHidden(snap){
+  const first=firstFromServer(snap,'hidden');
+  const inFs=new Set();
+  for(const ch of snap.docChanges()){ if(ch.type!=='removed'){ S.hidden[ch.doc.id]=1; inFs.add(ch.doc.id); } }
+  if(first){ const up=Object.keys(S.hidden).filter(id=>!inFs.has(id)); if(up.length) fsHide(up.slice(0,450)); }
+  S.log=S.log.filter(e=>!S.hidden[e.id]);
+  save(); render();
+}
+
+// Con Firestore activo, Calendar es una copia: gana Firestore, salvo que el evento se haya
+// editado en Google Calendar después del último cambio en Firestore (eso se importa).
+async function reconcileMonthFS(year,month){
+  const prefix=`${year}-${p2(month+1)}`;
+  const items=await listEvents({timeMin:new Date(year,month,1).toISOString(),timeMax:new Date(year,month+1,1).toISOString()});
+  const byDay={};
+  for(const ev of items){
+    if(ev.extendedProperties?.private?.kind==='reminder') continue;
+    const ds=ev.start?.date||ev.start?.dateTime?.slice(0,10), type=classify(ev);
+    if(!ds||!ds.startsWith(prefix)||!type) continue;
+    (byDay[ds]=byDay[ds]||[]).push({id:ev.id,type,upd:Date.parse(ev.updated)||0});
+  }
+  const days=new Set([...Object.keys(byDay),...Object.keys(S.data),...Object.keys(S.evIds)].filter(k=>k.startsWith(prefix)));
+  for(const ds of days){
+    const evs=byDay[ds]||[], had=!!S.evIds[ds];
+    const keep=evs.find(e=>e.id===S.evIds[ds])||evs[0];
+    for(const e of evs) if(e!==keep) await delEvent(e.id);
+    if(keep) S.evIds[ds]=keep.id; else delete S.evIds[ds];
+    const ct=keep?.type||null, lt=S.data[ds]||null, fts=S.fs[ds]?.ts||0;
+    if(ct===lt||S.pending[ds]||timers[ds]) continue;
+    // ¿Se cambió en Google Calendar? Evento editado después del último cambio en Firestore,
+    // o evento que conocíamos y desapareció sin que Firestore cambiara desde la última sincronización.
+    const fromCal=keep?keep.upd>fts+5000:had&&fts<S.lastSync;
+    if(fromCal){
+      if(!explained(ds,ct)) logChange({d:ds,from:lt,to:ct,src:'calendar'});
+      if(ct) S.data[ds]=ct; else delete S.data[ds];
+      fsDay(ds,ct);
+    }else S.pending[ds]=true;   // gana Firestore: se corrige la copia en Calendar
+  }
+  save();
+  for(const ds of Object.keys(S.pending)) if(!timers[ds]) await pushDay(ds);
 }
 
 // Cola: todo lo que va a Calendar se ejecuta en orden, uno por uno
@@ -1063,7 +1226,7 @@ async function syncAll(){
     let sheetErr=null;
     try{ await pullSheet(); }catch(e){ if(e instanceof AuthError) throw e; sheetErr=e; }
     step('Sincronizando días…');
-    await reconcileMonth(year,month);
+    await (fbOn()?reconcileMonthFS:reconcileMonth)(year,month);
     step('Actualizando avisos…');
     await reconcileReminders();
     if(sheetErr) throw sheetErr;
@@ -1113,6 +1276,7 @@ function applyChange(key,next,src,meta={}){
   if(prev===next&&src!=='notif') return;
   if(next) S.data[key]=next; else delete S.data[key];
   logChange({d:key,from:prev,to:next,src,...meta});
+  fsDay(key);   // al instante en los otros dispositivos
   S.pending[key]=true; save(); render(); popDay(key);
   schedulePush(key);
   showUndo(key,prev,next);
@@ -1146,6 +1310,7 @@ function doUndo(){
   const cur=S.data[key]||null;
   if(prev) S.data[key]=prev; else delete S.data[key];
   logChange({d:key,from:cur,to:prev,src:'undo'});
+  fsDay(key);
   S.pending[key]=true; save(); render(); popDay(key);
   schedulePush(key,0);
 }
@@ -1344,24 +1509,27 @@ function render(){
   const err=S.lastError?`<span class="gcal-err">${S.lastError}</span>`:'';
   const busy=isBusy();
   document.getElementById('topbar').classList.toggle('on',busy);
+  const rt=!fbAuth?'':fbUser
+    ?`<br><span class="rt-on">${IC.bolt}Tiempo real · ${fbUser.email||''}</span> · <button class="gcal-link" id="btn-fb-out">Salir</button>`
+    :`<br><button class="gcal-link" id="btn-fb-in">${IC.bolt}Activar tiempo real</button>`;
   if(hasToken()){
     gb.innerHTML=`<div class="gcal-ic">${IC.cal}</div>
     <div class="gcal-status"><strong>${busy?'<i class="dot sync pulse"></i>':S.lastError?'<i class="dot warn"></i>':pc?'<i class="dot sync"></i>':'<i class="dot ok"></i>'}Google Calendar</strong>
       ${busy?(S.step||'Sincronizando…'):S.lastError?'No se pudo sincronizar':pc?`${pc} cambio${pc>1?'s':''} por subir`:`Al día${S.lastSync?` · ${fmtClock(S.lastSync)}`:''}`}${err}
       ${lc?`<button class="gcal-link" id="btn-legacy">Borrar ${lc} evento${lc>1?'s':''} viejo${lc>1?'s':''} del calendario principal</button><br>`:''}
-      ${S.sheetId?`<a class="gcal-link" href="${sheetUrl()}" target="_blank" rel="noopener">Ver log en Google Sheets</a> · `:''}<button class="gcal-link" id="btn-disconnect">Desconectar</button></div>
+      ${S.sheetId?`<a class="gcal-link" href="${sheetUrl()}" target="_blank" rel="noopener">Ver log en Google Sheets</a> · `:''}<button class="gcal-link" id="btn-disconnect">Desconectar</button>${rt}</div>
     <button class="gcal-btn press ${busy?'syncing':''}" id="btn-sync" aria-label="Sincronizar" ${busy?'disabled':''}>${IC.sync}${busy?'':'Sync'}</button>`;
-    chip.innerHTML=`<span class="chip">${busy?`<span class="spin">${IC.sync}</span>Sincronizando`:S.lastError?'<i class="dot warn"></i>Error':pc?`<i class="dot sync"></i>${pc} por subir`:'<i class="dot ok"></i>Al día'}</span>`;
+    chip.innerHTML=`<span class="chip">${busy?`<span class="spin">${IC.sync}</span>Sincronizando`:S.lastError?'<i class="dot warn"></i>Error':pc?`<i class="dot sync"></i>${pc} por subir`:fbUser?`<i class="dot ok"></i>${IC.bolt}En vivo`:'<i class="dot ok"></i>Al día'}</span>`;
   } else if(S.cid){
     gb.innerHTML=`<div class="gcal-ic">${IC.cal}</div>
     <div class="gcal-status"><strong><i class="dot warn"></i>Sesión vencida</strong>
       ${pc?`${pc} cambio${pc>1?'s':''} esperando para subir`:'Reconecta para seguir sincronizando'}${err}
-      <br><button class="gcal-link" id="btn-cid">Cambiar Client ID</button> · <button class="gcal-link" id="btn-disconnect">Desconectar</button></div>
+      <br><button class="gcal-link" id="btn-cid">Cambiar Client ID</button> · <button class="gcal-link" id="btn-disconnect">Desconectar</button>${rt}</div>
     <button class="gcal-btn primary press" id="btn-reconnect">Reconectar</button>`;
     chip.innerHTML=`<span class="chip"><i class="dot warn"></i>${pc?`${pc} sin subir`:'Sin sesión'}</span>`;
   } else {
     gb.innerHTML=`<div class="gcal-ic">${IC.cal}</div>
-    <div class="gcal-status"><strong><i class="dot"></i>Google Calendar</strong>Sincroniza tus días y recibe avisos a las 10:00 y 4:30</div>
+    <div class="gcal-status"><strong><i class="dot"></i>Google Calendar</strong>Sincroniza tus días y recibe avisos a las 10:00 y 4:30${rt}</div>
     <button class="gcal-btn primary press" id="btn-connect">${IC.link}Conectar</button>`;
     chip.innerHTML=`<span class="chip"><i class="dot"></i>Solo local</span>`;
   }
@@ -1388,6 +1556,8 @@ function render(){
   document.getElementById('btn-sync')?.addEventListener('click',syncAll);
   document.getElementById('btn-legacy')?.addEventListener('click',cleanupLegacy);
   document.getElementById('btn-disconnect')?.addEventListener('click',disconnect);
+  document.getElementById('btn-fb-in')?.addEventListener('click',fbSignIn);
+  document.getElementById('btn-fb-out')?.addEventListener('click',fbSignOut);
   afterRender(s);
 }
 
@@ -1524,6 +1694,7 @@ addEventListener('focus',()=>{ if(hasToken()&&!isBusy()&&Date.now()-S.lastSync>W
 if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
 load();
 document.getElementById('app-ver').textContent=APP_VER; document.getElementById('app-ver2').textContent=APP_VER;
+document.addEventListener('DOMContentLoaded',fbInit);   // los scripts de Firebase (defer) ya cargaron
 const _link=readDeepLink();
 render();
 whenGIS().then(()=>{ if(S.cid) initGIS(); });
