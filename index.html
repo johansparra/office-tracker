@@ -578,6 +578,11 @@ function initGIS(){
     client_id:S.cid, scope:SCOPE, include_granted_scopes:false,
     callback:r=>{
       if(r.error){ S.lastError='Google no autorizó la conexión'; render(); return; }
+      // En la pantalla de Google cada permiso es una casilla: sin los dos no se puede sincronizar
+      if(!google.accounts.oauth2.hasGrantedAllScopes(r,...SCOPES)){
+        S.lastError='Faltan permisos: toca Reconectar y marca todas las casillas de Google Calendar';
+        clearToken(); render(); return;
+      }
       setToken(r.access_token,+r.expires_in||3600); S.lastError=null;
       syncAll();
     },
@@ -590,7 +595,7 @@ async function connect(){
   if(!S.cid){ showModal(); return; }
   if(!await whenGIS()){ alert('No se pudo cargar el inicio de sesión de Google. Revisa la conexión e inténtalo de nuevo.'); return; }
   initGIS();
-  tokenClient.requestAccessToken({prompt:''});
+  tokenClient.requestAccessToken({prompt:S.lastError?.startsWith('Faltan permisos')?'consent':''});
 }
 // Olvida la conexión actual (Client ID, sesión y calendario). Lo marcado sigue en este dispositivo
 // y se vuelve a subir completo al conectar de nuevo.
@@ -657,19 +662,26 @@ async function ensureCalendar(){
     if(S.calId&&S.calChecked) return;   // sin red u otro fallo: se sigue con el calendario conocido
     throw e;                            // nunca se crea uno nuevo sin haber podido buscar
   }
-  let id=found[0]||null;
+  let id=found[0]||null, created=false;
   if(!id){
     const r=await gcal('POST','/calendars',{summary:CAL_NAME,timeZone:TZ,
       description:'Visitas a oficina y recordatorios diarios de Office Tracker (ScotiaTech).'});
-    id=r.id;
+    id=r.id; created=true;
   }
   for(const dup of found.slice(1)) await mergeCalendar(dup,id);
   if(S.calId!==id){
-    // Otro calendario (o ninguno) → los ids guardados no sirven; lo local se vuelve a subir
-    // y reconcileMonth/reconcileReminders quitan lo que quede repetido.
-    if(S.calId) S.evIds={}, S.rem={};
-    Object.keys(S.data).forEach(k=>{ S.pending[k]=true; });
-    S.calId=id;
+    // Cambio de calendario (primera conexión, otro dispositivo lo creó, o lo borraste en Google):
+    // los ids guardados ya no sirven. Se unen los dos lados:
+    //  - calendario nuevo y vacío → se sube todo lo local
+    //  - calendario existente     → gana lo que ya está en Google; solo se suben los días que no tiene
+    S.evIds={}; S.rem={}; S.calId=id;
+    const inCal=new Set();
+    if(!created) for(const ev of await listEvents({})){
+      if(ev.extendedProperties?.private?.kind==='reminder'||!classify(ev)) continue;
+      const ds=ev.start?.date||ev.start?.dateTime?.slice(0,10); if(ds) inCal.add(ds);
+    }
+    for(const k of Object.keys(S.data)) if(!inCal.has(k)) S.pending[k]=true;
+    for(const k of Object.keys(S.pending)) if(inCal.has(k)) delete S.pending[k];
   }
   S.calChecked=true;
   localStorage.setItem(LS_CAL,S.calId); save();
@@ -1235,6 +1247,8 @@ document.addEventListener('visibilitychange',()=>{
   if(hasToken()) syncAll();
 });
 setInterval(refreshToday,60*1000);
+// Con la app abierta también se traen cada minuto los cambios hechos en otro dispositivo o en Google Calendar
+setInterval(()=>{ if(!document.hidden&&hasToken()&&!S.syncing) syncAll(); },60*1000);
 
 // ═══════════════════════════════════════════════════════════
 // INIT
