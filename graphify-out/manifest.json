@@ -1,0 +1,44 @@
+{
+  "manifest.json": {
+    "mtime": 1791070830.338806,
+    "seen": 1791076249.6345427,
+    "ast_hash": "ce035097f3b426628f1e695fc5e301cf",
+    "semantic_hash": "ce035097f3b426628f1e695fc5e301cf"
+  },
+  "sw.js": {
+    "mtime": 1791070830.3225977,
+    "seen": 1791076249.6345472,
+    "ast_hash": "948f8c43dd152b726fc8008de4ab34c1",
+    "semantic_hash": "948f8c43dd152b726fc8008de4ab34c1"
+  },
+  "CLAUDE.md": {
+    "mtime": 1791075992.5074425,
+    "seen": 1791076249.63455,
+    "ast_hash": "59d2b82c88f80b7056317f6e00be7415",
+    "semantic_hash": "59d2b82c88f80b7056317f6e00be7415"
+  },
+  "README.md": {
+    "mtime": 1791070830.3307018,
+    "seen": 1791076249.6345518,
+    "ast_hash": "c66ec96ec715390b970ad1f2d2e58b66",
+    "semantic_hash": "c66ec96ec715390b970ad1f2d2e58b66"
+  },
+  "index.html": {
+    "mtime": 1791070830.338806,
+    "seen": 1791076249.6345544,
+    "ast_hash": "3f99256aa2c8945fb441a4516f2d6f8e",
+    "semantic_hash": "3f99256aa2c8945fb441a4516f2d6f8e"
+  },
+  "icon-192.png": {
+    "mtime": 1791065278.79921,
+    "seen": 1791076249.6345568,
+    "ast_hash": "79502c74a7bcb323b24f8661e9ba45ae",
+    "semantic_hash": "79502c74a7bcb323b24f8661e9ba45ae"
+  },
+  "icon-512.png": {
+    "mtime": 1791065278.79921,
+    "seen": 1791076249.6345584,
+    "ast_hash": "5263d879e8cda2b3d7152def77021f0d",
+    "semantic_hash": "5263d879e8cda2b3d7152def77021f0d"
+  }
+}
