@@ -375,6 +375,7 @@ const APP_ID='scotiatech-office-tracker', CAL_NAME='Office Tracker', TZ='America
 // drive.file: solo archivos que crea esta app (la hoja «Office Tracker · Historial»), no el resto de tu Drive.
 const SCOPES=['https://www.googleapis.com/auth/calendar.app.created','https://www.googleapis.com/auth/calendar.calendarlist.readonly',
   'https://www.googleapis.com/auth/drive.file'];
+const APP_VER='v9';   // igual que VERSION en sw.js: súbelos juntos al publicar
 const SHEET_NAME='Office Tracker · Historial', SHEET_TAB='Historial', FOLDER_NAME='office-tracker';   // Mi unidad/office-tracker/
 const SCOPE=SCOPES.join(' ');
 const LEGACY_SCOPE='https://www.googleapis.com/auth/calendar.events';   // solo para limpiar eventos de la v2
@@ -414,7 +415,7 @@ const tico=t=>`<span class="t-${t||'null'}">${IC[t||'null']}</span>`;
 function today(){ const d=new Date(); d.setHours(0,0,0,0); return d; }
 let now=today();
 const S={ year:now.getFullYear(), month:now.getMonth(),
-  data:{}, evIds:{}, pending:{}, log:[], logOut:[], sheetId:null, rem:{}, nonces:{}, skip:{}, legacy:{},
+  data:{}, evIds:{}, pending:{}, log:[], logOut:[], sheetId:null, account:null, rem:{}, nonces:{}, skip:{}, legacy:{},
   token:null, tokenExp:0, cid:null, calId:null, calChecked:false, dev:null,
   syncing:0, lastError:null, showAllLog:false };
 
@@ -505,7 +506,7 @@ function stats(){
 // ═══════════════════════════════════════════════════════════
 function save(){
   try{ localStorage.setItem(LS_DATA,JSON.stringify({v:3,data:S.data,evIds:S.evIds,pending:S.pending,log:S.log,
-    rem:S.rem,nonces:S.nonces,skip:S.skip,legacy:S.legacy,logOut:S.logOut,sheetId:S.sheetId})); }catch(_){}
+    rem:S.rem,nonces:S.nonces,skip:S.skip,legacy:S.legacy,logOut:S.logOut,sheetId:S.sheetId,account:S.account})); }catch(_){}
 }
 function load(){
   try{
@@ -514,7 +515,7 @@ function load(){
       S.data=p.data||{};
       if(p.v===3){
         Object.assign(S,{evIds:p.evIds||{},pending:p.pending||{},log:p.log||[],rem:p.rem||{},
-          nonces:p.nonces||{},skip:p.skip||{},legacy:p.legacy||{},logOut:p.logOut||[],sheetId:p.sheetId||null});
+          nonces:p.nonces||{},skip:p.skip||{},legacy:p.legacy||{},logOut:p.logOut||[],sheetId:p.sheetId||null,account:p.account||null});
       }else{
         // Migración desde v1/v2: los eventos viejos están en el calendario principal.
         // Se guardan aparte para poder borrarlos, y todo lo local se sube al calendario nuevo.
@@ -612,7 +613,7 @@ async function connect(){
 // y se vuelve a subir completo al conectar de nuevo.
 function resetConnection(){
   clearToken(); tokenClient=null; tokenClientCid=null; legacyClient=null;
-  S.cid=null; S.calId=null; S.calChecked=false; S.evIds={}; S.rem={}; S.lastError=null; S.sheetId=null;
+  S.cid=null; S.calId=null; S.calChecked=false; S.evIds={}; S.rem={}; S.lastError=null; S.sheetId=null; S.account=null; sheetReady=false;
   Object.keys(S.data).forEach(k=>{ S.pending[k]=true; });
   try{ localStorage.removeItem(LS_CID); localStorage.removeItem(LS_CAL); }catch(_){}
   save();
@@ -680,6 +681,7 @@ async function ensureCalendar(){
   try{
     const r=await gcal('GET','/users/me/calendarList?minAccessRole=owner&maxResults=250');
     found=(r?.items||[]).filter(c=>c.summary===CAL_NAME&&!c.deleted).map(c=>c.id).sort();
+    S.account=(r?.items||[]).find(c=>c.primary)?.id||S.account;   // el id del calendario principal es el correo (para el log)
   }catch(e){
     if(e instanceof AuthError) throw e;
     if(e.status||!S.calId||!S.calChecked) throw e;   // error de Google: se muestra tal cual
@@ -863,31 +865,74 @@ async function ensureFolder(){
   return (await gcal('POST',`${DRIVE}?fields=id`,{name:FOLDER_NAME,mimeType:'application/vnd.google-apps.folder',parents:['root']})).id;
 }
 async function ensureSheet(){
-  if(S.sheetId) return;
-  const q=`name='${SHEET_NAME}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`;
-  const r=await gcal('GET',`${DRIVE}?q=${enc(q)}&orderBy=createdTime&fields=files(id)`);
-  let id=r?.files?.[0]?.id;
-  if(!id){
+  if(S.sheetId&&sheetReady) return;
+  if(!S.sheetId){
+    const q=`name='${SHEET_NAME}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`;
+    const r=await gcal('GET',`${DRIVE}?q=${enc(q)}&orderBy=createdTime&fields=files(id)`);
+    S.sheetId=r?.files?.[0]?.id||null;
     // Se crea dentro de la carpeta «office-tracker» en la raíz de Mi unidad
-    const c=await gcal('POST',`${DRIVE}?fields=id`,{name:SHEET_NAME,mimeType:'application/vnd.google-apps.spreadsheet',parents:[await ensureFolder()]});
-    id=c.id;
-    const tab=(await gcal('GET',`${SHEETS}/${id}?fields=sheets.properties.sheetId`))?.sheets?.[0]?.properties?.sheetId??0;
-    await gcal('POST',`${SHEETS}/${id}:batchUpdate`,{requests:[
-      {updateSpreadsheetProperties:{properties:{timeZone:TZ},fields:'timeZone'}},
-      {updateSheetProperties:{properties:{sheetId:tab,title:SHEET_TAB,gridProperties:{frozenRowCount:1}},fields:'title,gridProperties.frozenRowCount'}}]});
-    await gcal('PUT',`${SHEETS}/${id}/values/${enc(`${SHEET_TAB}!A1:H1`)}?valueInputOption=RAW`,
-      {values:[['ID','Día','Antes','Después','Origen','Detalle','Dispositivo','Registrado']]});
+    if(!S.sheetId) S.sheetId=(await gcal('POST',`${DRIVE}?fields=id`,
+      {name:SHEET_NAME,mimeType:'application/vnd.google-apps.spreadsheet',parents:[await ensureFolder()]})).id;
+    save();
   }
-  S.sheetId=id; save();
+  await setupSheet();
+  sheetReady=true;
 }
-const fmtFull=ts=>{ const d=new Date(ts); return `${toKey(d)} ${p2(d.getHours())}:${p2(d.getMinutes())}`; };
+// Deja la hoja lista: pestaña «Historial», títulos, fila fija, filtro y zona horaria.
+// Se revisa una vez por sesión, así una configuración a medias (o una pestaña renombrada) se repara sola.
+let sheetReady=false;
+async function setupSheet(){
+  const m=await gcal('GET',`${SHEETS}/${enc(S.sheetId)}?fields=sheets.properties(sheetId,title)`);
+  if(m?.notFound){ S.sheetId=null; save(); return ensureSheet(); }   // la borraste → se crea otra
+  const tabs=(m?.sheets||[]).map(s=>s.properties);
+  const reqs=[{updateSpreadsheetProperties:{properties:{timeZone:TZ},fields:'timeZone'}}];
+  let tabId=tabs.find(t=>t.title===SHEET_TAB)?.sheetId;
+  if(tabId===undefined&&tabs.length===1) tabId=tabs[0].sheetId;   // la pestaña por defecto («Hoja 1») se renombra
+  if(tabId===undefined){ tabId=Math.floor(Math.random()*1e9); reqs.push({addSheet:{properties:{sheetId:tabId,title:SHEET_TAB}}}); }
+  reqs.push(
+    {updateSheetProperties:{properties:{sheetId:tabId,title:SHEET_TAB,gridProperties:{frozenRowCount:1}},fields:'title,gridProperties.frozenRowCount'}},
+    {repeatCell:{range:{sheetId:tabId,startRowIndex:0,endRowIndex:1},
+      cell:{userEnteredFormat:{textFormat:{bold:true},backgroundColor:{red:.91,green:.93,blue:.97}}},fields:'userEnteredFormat(textFormat,backgroundColor)'}},
+    {setBasicFilter:{filter:{range:{sheetId:tabId}}}});
+  await gcal('POST',`${SHEETS}/${enc(S.sheetId)}:batchUpdate`,{requests:reqs});
+  await gcal('PUT',`${SHEETS}/${enc(S.sheetId)}/values/${enc(`'${SHEET_TAB}'!A1`)}?valueInputOption=RAW`,{values:[LOG_COLS]});
+}
+
+// ── Formato de log de auditoría (una fila por evento) ──
+const LOG_COLS=['Timestamp (ISO 8601)','Fecha y hora local','ID evento','Nivel','Acción','Origen','Día afectado','Día de la semana',
+  'Semana ISO','Festivo','Estado anterior','Estado nuevo','Aviso','Verificación del aviso','Referencia (código)','Detalle',
+  'ID dispositivo','Dispositivo','Cuenta Google','Versión app','Zona horaria','Subido a la hoja'];
+function isoTs(ts){
+  const d=new Date(ts), o=-d.getTimezoneOffset(), a=Math.abs(o);
+  return `${toKey(d)}T${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}.${String(d.getMilliseconds()).padStart(3,'0')}${o>=0?'+':'-'}${p2(a/60|0)}:${p2(a%60)}`;
+}
+const fmtFull=ts=>{ const d=new Date(ts); return `${toKey(d)} ${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`; };
+function isoWeek(k){
+  const d=fromKey(k); d.setDate(d.getDate()+3-((d.getDay()+6)%7));
+  const w1=new Date(d.getFullYear(),0,4);
+  return `${d.getFullYear()}-W${p2(1+Math.round(((d-w1)/864e5-3+((w1.getDay()+6)%7))/7))}`;
+}
+function devInfo(){
+  const ua=navigator.userAgent;
+  const os=/Android/.test(ua)?'Android':/iPhone|iPad/.test(ua)?'iOS':/Windows/.test(ua)?'Windows':/Mac OS/.test(ua)?'macOS':/Linux/.test(ua)?'Linux':'Otro';
+  const br=/Edg\//.test(ua)?'Edge':/OPR\//.test(ua)?'Opera':/Firefox\//.test(ua)?'Firefox':/Chrome\//.test(ua)?'Chrome':/Safari\//.test(ua)?'Safari':'Otro';
+  return `${os} · ${br} · ${matchMedia('(display-mode: standalone)').matches?'app instalada':'navegador'}`;
+}
+function logRow(e,upTs){
+  const act=e.src==='notif'&&e.from===e.to?'CONFIRMAR':!e.from?'MARCAR':!e.to?'DESMARCAR':'CAMBIAR';
+  const ver=e.src!=='notif'?'—':e.ok==='ok'?'Verificado':e.ok==='bad'?'No coincide':'Sin verificar';
+  return [isoTs(e.ts),fmtFull(e.ts),e.id,e.ok==='bad'?'WARN':'INFO',act,srcBadge(e)[1],e.d,DOW_L[fromKey(e.d).getDay()],
+    isoWeek(e.d),getHol(fromKey(e.d))||'—',TYPE_UI[e.from],TYPE_UI[e.to],e.slot?slotOf(e.slot)?.label||e.slot:'—',ver,
+    e.ref||'—',srcText(e),e.dev,e.dev===S.dev?devInfo():'—',S.account||'—',APP_VER,Intl.DateTimeFormat().resolvedOptions().timeZone,isoTs(upTs)];
+}
 async function syncSheet(retry=true){
-  const rows=[...S.logOut,...S.log.filter(e=>!e.up)];
+  const rows=[...S.logOut,...S.log.filter(e=>!e.up)].sort((a,b)=>a.ts-b.ts);
   if(!rows.length) return;
   await ensureSheet();
-  const r=await gcal('POST',`${SHEETS}/${enc(S.sheetId)}/values/${enc(`${SHEET_TAB}!A1`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
-    {values:rows.map(e=>[e.id,e.d,TYPE_UI[e.from],TYPE_UI[e.to],srcBadge(e)[1],srcText(e),e.dev,fmtFull(e.ts)])});
-  if(r?.notFound){ S.sheetId=null; save(); if(retry) await syncSheet(false); return; }   // borraste la hoja → se crea otra
+  const now=Date.now();
+  const r=await gcal('POST',`${SHEETS}/${enc(S.sheetId)}/values/${enc(`'${SHEET_TAB}'!A1`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+    {values:rows.map(e=>logRow(e,now))});
+  if(r?.notFound){ S.sheetId=null; sheetReady=false; save(); if(retry) await syncSheet(false); return; }   // borraste la hoja → se crea otra
   rows.forEach(e=>{ e.up=true; });
   S.logOut=S.logOut.filter(e=>!rows.includes(e)); save();
 }

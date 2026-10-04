@@ -105,7 +105,27 @@ Menú ☰ → **APIs y servicios → Pantalla de consentimiento de OAuth**. En l
 ### Historial permanente en Google Sheets
 
 - Cada cambio del historial se agrega como fila en la hoja **Office Tracker · Historial**, dentro de la carpeta **office-tracker** en la raíz de **Mi unidad** (`Mi unidad/office-tracker/`). La app crea la carpeta y la hoja la primera vez.
-- Columnas: **ID · Día · Antes · Después · Origen · Detalle · Dispositivo · Registrado**.
+- Funciona como un **log de auditoría**: una fila por evento, en orden cronológico, con filtro y la fila de títulos fija. Columnas:
+
+| Columna | Ejemplo | Qué es |
+|---|---|---|
+| Timestamp (ISO 8601) | `2026-10-03T21:29:05.123-05:00` | Momento exacto del cambio, con milisegundos y zona |
+| Fecha y hora local | `2026-10-03 21:29:05` | Lo mismo, legible |
+| ID evento | `e5b07221` | Id único del cambio (el mismo que muestra la app) |
+| Nivel | `INFO` / `WARN` | `WARN` si el código del aviso no coincidía |
+| Acción | `MARCAR` · `DESMARCAR` · `CAMBIAR` · `CONFIRMAR` | Qué pasó con el día |
+| Origen | `Manual` · `Calendar` · `Aviso ✓` · `Deshecho` | De dónde vino el cambio |
+| Día afectado · Día de la semana · Semana ISO | `2026-10-07` · `miércoles` · `2026-W41` | El día que cambió |
+| Festivo | `Día de la Raza` | Nombre del festivo, si lo es |
+| Estado anterior · Estado nuevo | `Vacío` → `Oficina` | Antes y después |
+| Aviso · Verificación del aviso · Referencia (código) | `10:00 a. m.` · `Verificado` · `51c46fc5` | Solo para cambios hechos desde un aviso |
+| Detalle | `Editado en Google Calendar` | Descripción completa |
+| ID dispositivo · Dispositivo | `72bf` · `Windows · Chrome · navegador` | Qué dispositivo lo registró |
+| Cuenta Google | `tu@gmail.com` | Cuenta conectada |
+| Versión app · Zona horaria | `v9` · `America/Bogota` | Versión y zona del dispositivo |
+| Subido a la hoja | `2026-10-03T21:30:00.000-05:00` | Cuándo llegó a la hoja |
+
+- La app revisa la hoja una vez por sesión y la repara sola: si falta la pestaña **Historial**, los títulos o el formato, los vuelve a poner.
 - **La hoja nunca se borra desde la app**: es el registro permanente. Si borras un registro en la app antes de que llegue a la hoja, igual se sube.
 - Todos tus dispositivos escriben en la misma hoja; la columna *Dispositivo* dice de cuál vino cada fila.
 - En la tarjeta de Google aparece el enlace **Ver historial en Google Sheets**.
@@ -157,7 +177,7 @@ La app programa en el calendario Office Tracker dos avisos de lunes a viernes (*
 
 ## 🔄 Publicar actualizaciones
 
-Cada vez que subas cambios a GitHub Pages, abre `sw.js` y sube la versión (`const VERSION = 'v8'` → `'v9'`…). La app carga el HTML desde la red primero, así que basta con cerrarla y abrirla para ver la versión nueva.
+Cada vez que subas cambios a GitHub Pages, abre `sw.js` y sube la versión (`const VERSION = 'v9'` → `'v10'`…), y pon el mismo valor en `APP_VER` dentro de `index.html` (sale en la columna *Versión app* del log). La app carga el HTML desde la red primero, así que basta con cerrarla y abrirla para ver la versión nueva.
 
 ---
 
