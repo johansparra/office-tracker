@@ -6,8 +6,8 @@
   "description": "Tracker de visitas a oficina con festivos Colombia y sincronización Google Calendar",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#080c18",
-  "theme_color": "#c1002a",
+  "background_color": "#090d18",
+  "theme_color": "#090d18",
   "orientation": "portrait",
   "icons": [
     {

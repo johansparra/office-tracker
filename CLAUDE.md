@@ -1,0 +1,30 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Overview
+
+A single-page PWA (Spanish UI) that tracks office visits against a monthly quota, with automatic Colombian holidays and two-way sync to a dedicated Google Calendar. Deployed as static files on GitHub Pages; installed on Android via Chrome "Add to home screen". `README.md` is the user-facing spec (in Spanish) — keep it in sync when behavior changes.
+
+## Development
+
+- No build step, package manager, linter, or test suite. All app code (HTML, CSS, JS) lives in `index.html`; `sw.js` is the service worker; `manifest.json` the PWA manifest.
+- Run locally with any static server from the repo root (e.g. `python -m http.server 8000`). Google sign-in only works from origins registered as "Authorized JavaScript origins" on the user's OAuth Client ID, so add `http://localhost:8000` there to test Calendar sync locally.
+- **When publishing changes, bump `VERSION` in `sw.js`** (`'v3'` → `'v4'`…) so old caches are dropped. HTML is network-first, icons/manifest are cache-first; Google origins and non-GET requests bypass the SW entirely.
+- Code style in `index.html` is dense, compact one-liners with Spanish comments and `═══` section banners; match it.
+
+## Architecture (`index.html` script)
+
+**State**: one global object `S` holds everything — `data` (`{ 'YYYY-MM-DD': 'office'|'vacation' }`), `evIds` (day → Calendar event id), `pending` (days not yet pushed), `log` (audit trail), `rem`/`nonces`/`skip` (reminder events), `legacy` (v2 events to clean up), plus token/calendar ids. `save()`/`load()` persist to `localStorage` key `ot-data-v2` with schema `v:3`; `load()` migrates older shapes by marking all days pending and moving old event ids to `legacy`. Dates are always local-time `YYYY-MM-DD` keys via `toKey`/`fromKey`.
+
+**Quota logic** (`stats()`): base 8 visits/month; each week containing a holiday or vacation has quota 1 instead of 2, so target = `8 − adjusted weeks`. Weeks straddling months are displayed whole but only days inside the visible month count. Holidays are computed per year (`holidays(y)`, memoized in `_HC`) from fixed dates, Ley Emiliani (moved to Monday), and Easter-relative dates.
+
+**Change flow**: `toggle()` → `applyChange(key,next,src)` updates `S.data`, appends to `log`, marks `pending`, re-renders, and calls `schedulePush()` which waits `UNDO_MS` (5s) for the undo toast. `flushPushes()` pushes immediately when the page is hidden. `pushDay()` skips days still in the undo window (`timers[key]`).
+
+**Calendar sync**: OAuth via Google Identity Services token client (scope `calendar.app.created` — only calendars this app creates; `calendar.events` is requested solely for `cleanupLegacy()`). `ensureCalendar()` finds/creates the secondary "Office Tracker" calendar. All Calendar API calls go through `gcal()` and are serialized through `enqueue()` (a single promise chain) — keep new API work inside `enqueue`. `syncAll()` runs on load and every `visibilitychange` to visible: `reconcileMonth()` (pending local changes win; otherwise Calendar wins; duplicate same-day events are deleted; `classify()` maps event titles with 🏢/oficina vs 🏖️/libre/vacaciones) then `reconcileReminders()`.
+
+**Reminders**: for weekdays that aren't holidays/marked/skipped within `HORIZON` (21) days, two timed events (`SLOTS`: 10:00 and 16:30, `America/Bogota`) are created, each with a random nonce and a deep link `?d=DATE&r=SLOT&n=NONCE`. Marking a day deletes its remaining reminders. Day vs reminder events are distinguished by `extendedProperties.private.kind` (`day`/`reminder`) and tagged with `appId`.
+
+**Deep links**: `readDeepLink()` parses and strips the query string; `openNotifSheet()` verifies the nonce (`verifyNonce` → `ok`/`bad`/`unknown`, shown as Aviso ✓/⚠/?) and offers "Fui a la oficina / Día libre / Hoy no fui". Audit log entries record source (`manual`, `notif`, `calendar`, `undo`), timestamp, change id and device id (`S.dev`), and the last 10 entries per day are written into the Calendar event description by `dayBody()`.
+
+**Rendering**: `render()` rebuilds the whole UI from `S` via template strings into `innerHTML`; there's no framework or virtual DOM. Long-press a day → `openDaySheet()` history. Styling is class-based with CSS custom properties in `:root` (dark theme, Geist font, Scotia red `--brand`); day/state colors come from classes like `.s-office`, `.hol`, `.today`, not inline styles. UI icons are inline SVGs in `IC` with labels in `TYPE_UI`; **don't change `TYPE_LBL`** — its emoji become Calendar event titles that `classify()` parses back. Sheets/modals are bottom sheets opened/closed through `showOv()`/`hideOv()` (WAAPI exit animation, then `style.display='none'`; `dataset.closing` marks one mid-exit). Motion lives in the MOVIMIENTO section: `afterRender()` (segment fill, number swap, goal celebration), `popDay()`, `slideMonth()`, all via `anim()` which no-ops under `prefers-reduced-motion`. Animate only `transform`/`opacity`. Hover styles stay inside `@media (hover:hover) and (pointer:fine)`.
