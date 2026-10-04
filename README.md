@@ -1,6 +1,6 @@
 # 🏢 ScotiaTech Office Tracker — PWA
 
-Tracker de visitas a oficina con festivos colombianos automáticos y sincronización con Google Calendar.
+Tracker de visitas a oficina con festivos colombianos automáticos, sincronización con Google Calendar entre todos tus dispositivos e historial permanente en Google Sheets.
 
 ---
 
@@ -33,45 +33,108 @@ Tracker de visitas a oficina con festivos colombianos automáticos y sincronizac
 
 ---
 
-## 🔗 Sincronización con Google Calendar (opcional)
+## 🔗 Sincronización con Google (opcional)
 
-### Crear Client ID en Google Cloud
+Al conectar tu cuenta de Google, la app:
 
-1. Ve a [console.cloud.google.com](https://console.cloud.google.com)
-2. **Crear proyecto** → ponle un nombre → Crear
-3. Menú → **"APIs y servicios" → "Biblioteca"**
-4. Busca **"Google Calendar API"** → Habilitar
-5. Ve a **"APIs y servicios" → "Credenciales"**
-6. **"+ Crear credenciales" → "ID de cliente OAuth 2.0"**
-   - Tipo: **Aplicación web**
-   - Nombre: `Office Tracker`
-   - En **"Orígenes de JavaScript autorizados"** agrega:  
-     `https://TU-USUARIO.github.io`
-7. Clic en **Crear** → Copia el **Client ID**
+- Guarda tus días y los avisos diarios en un calendario propio llamado **Office Tracker**.
+- Mantiene el **mismo calendario** en todos tus dispositivos (PC, celular…).
+- Copia todo el historial de cambios a una hoja de cálculo **Office Tracker · Historial** en tu Google Drive.
 
-> En **Pantalla de consentimiento de OAuth → Acceso a datos** agrega los permisos `.../auth/calendar.app.created` y `.../auth/calendar.calendarlist.readonly`.
+Todo corre en tu navegador; no hay servidor de por medio. Solo necesitas un **Client ID** de Google Cloud (se crea una sola vez).
 
-> Si tu proyecto de Google Cloud está en modo **Prueba**, agrégate como usuario de prueba en **Pantalla de consentimiento de OAuth**.
+### 1. Crear el proyecto y activar las APIs
 
-### Conectar en la app
+1. Entra a [console.cloud.google.com](https://console.cloud.google.com) con la misma cuenta de Google que vas a conectar.
+2. Arriba, en el selector de proyectos → **Proyecto nuevo** → nombre (por ejemplo `office-tracker`) → **Crear**. Verifica que quede seleccionado.
+3. Menú ☰ → **APIs y servicios → Biblioteca**. Busca y toca **Habilitar** en las tres:
+   - **Google Calendar API**: días y avisos
+   - **Google Sheets API**: escribir el historial en la hoja
+   - **Google Drive API**: crear la carpeta y encontrar la hoja
 
-1. Abre la PWA en tu Android
-2. En la barra azul inferior → toca **"Conectar →"**
-3. Pega el Client ID
-4. Toca **"Guardar y conectar"**
-5. Autoriza con tu cuenta Google
-6. ¡Listo! Cada día que marques se crea automáticamente en tu Google Calendar
+> Si falta alguna, la app lo dice en la tarjeta de Google: *«La Google … API no está activada en tu proyecto de Google Cloud»*.
 
-### Calendario propio "Office Tracker"
+### 2. Configurar la pantalla de consentimiento (Google Auth Platform)
 
-Al conectar, la app crea en tu Google Calendar un calendario secundario llamado **Office Tracker**. Ahí guarda los días marcados y los avisos diarios; tu calendario principal no se toca. Pide dos permisos: `calendar.app.created` (solo da acceso a calendarios creados por esta app, no a tus otros eventos) y `calendar.calendarlist.readonly` (ver los nombres de tus calendarios, para que todos tus dispositivos usen el mismo «Office Tracker» en vez de crear uno cada uno). Si encuentra más de uno, los une en uno solo.
+Menú ☰ → **APIs y servicios → Pantalla de consentimiento de OAuth**. En la consola nueva se llama **Google Auth Platform**.
 
-- Lo ves en Google Calendar con su propio color; puedes ocultarlo sin afectar la app.
-- **Sincronización en ambos sentidos:** puedes crear, mover, renombrar o borrar días desde la app de Calendar. Un evento de día completo con 🏢 u "oficina" en el título cuenta como oficina; con 🏖️, "libre" o "vacaciones" cuenta como día libre. Se refleja al abrir o volver al tracker.
-- Si cambias algo en el celular y aún no se ha subido (punto azul), gana el celular. Si no, gana Calendar.
-- La sesión de Google dura ~1 hora y se conserva aunque cierres la app. Cuando vence, toca **Reconectar**; lo marcado mientras tanto se sube solo.
+1. **Información de la marca** (*Branding*): nombre de la app `Office Tracker`, tu correo de asistencia y tu correo de contacto. Guarda.
+2. **Público** (*Audience*):
+   - Tipo de usuario: **Externo**.
+   - Estado de publicación: **Prueba** (no hace falta publicar ni verificar la app para uso personal).
+   - En **Usuarios de prueba** → **+ Agregar usuarios** → escribe tu correo de Gmail → Guardar. **Sin este paso Google bloquea el acceso** (ver *Solución de problemas*).
+3. **Acceso a datos** (*Data access*) → **Agregar o quitar permisos**. Marca, o pega en *Agregar permisos manualmente*, estos tres y guarda:
 
-**Si venías de la versión anterior:** tus días se suben al calendario nuevo automáticamente. En la barra azul aparece **"Borrar N eventos viejos del calendario principal"**; tócalo una vez y Google te pedirá un permiso adicional solo para esa limpieza.
+| Permiso | Para qué |
+|---|---|
+| `https://www.googleapis.com/auth/calendar.app.created` | Crear el calendario Office Tracker y manejar sus eventos. **No** da acceso a tus otros calendarios ni eventos. |
+| `https://www.googleapis.com/auth/calendar.calendarlist.readonly` | Ver la lista de tus calendarios, solo los nombres. Así cada dispositivo encuentra el Office Tracker que ya existe en vez de crear otro. |
+| `https://www.googleapis.com/auth/drive.file` | Crear la carpeta `office-tracker` y la hoja del historial. **Solo** ve archivos que creó esta app, no el resto de tu Drive. |
+
+### 3. Crear el Client ID
+
+1. **Google Auth Platform → Clientes** (o **APIs y servicios → Credenciales → + Crear credenciales → ID de cliente de OAuth**).
+2. Tipo de aplicación: **Aplicación web**. Nombre: `Office Tracker`.
+3. **Orígenes de JavaScript autorizados** → **+ Agregar URI** → `https://TU-USUARIO.github.io` (solo el dominio, sin `/office-tracker` ni `/` al final).
+4. **URIs de redireccionamiento autorizados**: déjalo vacío.
+5. **Crear** → copia el **ID de cliente** (termina en `.apps.googleusercontent.com`).
+
+> La app **solo** usa el Client ID. El *secreto del cliente* y el archivo `client_secret_….json` que Google ofrece descargar **no se usan**: no los pegues en la app ni los subas al repositorio.
+
+### 4. Conectar en la app
+
+1. Abre la app. La tarjeta **Google Calendar** está arriba del todo → **Conectar**.
+2. Pega el Client ID → **Guardar y conectar**.
+3. Elige tu cuenta. Google mostrará *«Google no verificó esta app»*: es normal en modo Prueba → **Continuar**.
+4. **Marca todas las casillas de permisos** (calendario y Drive) → **Continuar**. Si dejas alguna sin marcar, la app muestra *«Faltan permisos»* y al tocar **Reconectar** te las vuelve a pedir.
+5. La tarjeta pasa a *«Calendario «Office Tracker» al día»*.
+
+**Varios dispositivos:** conecta primero uno y espera a que diga *al día*; luego conecta los demás con **el mismo Client ID** y la **misma cuenta**. Todos usan el mismo calendario y la misma hoja.
+
+### Calendario propio «Office Tracker»
+
+- La app crea en tu Google Calendar un calendario secundario **Office Tracker**; tu calendario principal no se toca. Lo ves con su propio color y puedes ocultarlo sin afectar la app.
+- **Uno solo por cuenta.** En cada sincronización la app busca los calendarios con ese nombre. Si hay más de uno (por ejemplo, dos dispositivos que se conectaron a la vez), todos eligen el mismo, le copian los días de los otros y borran los sobrantes. Nunca crea uno nuevo si no pudo buscar primero.
+- **Si borras el calendario en Google**, la app crea uno nuevo y vuelve a subir los días que tiene guardados en el dispositivo.
+- **Al unirse a un calendario que ya existe** (un segundo dispositivo, por ejemplo), gana lo que ya está en Google; solo se suben los días que Google no tiene.
+- **Sincronización en ambos sentidos:** puedes crear, mover, renombrar o borrar días desde Google Calendar. Un evento de día completo con 🏢 u "oficina" en el título cuenta como oficina; con 🏖️, "libre" o "vacaciones" cuenta como día libre.
+- **¿Cuándo sincroniza?** Al abrir la app, al volver a ella y **cada minuto** mientras está abierta. Así lo que marcas en el celular aparece en el PC en máximo un minuto, y al revés.
+- Si cambias algo en un dispositivo y aún no se ha subido (punto azul), gana ese cambio. Si no, gana Google Calendar.
+- La sesión de Google dura **~1 hora** (límite de Google para apps sin servidor). Cuando vence, la tarjeta dice **Sesión vencida** → toca **Reconectar**. Lo marcado mientras tanto queda guardado y se sube al reconectar.
+
+### Historial permanente en Google Sheets
+
+- Cada cambio del historial se agrega como fila en la hoja **Office Tracker · Historial**, dentro de la carpeta **office-tracker** en la raíz de **Mi unidad** (`Mi unidad/office-tracker/`). La app crea la carpeta y la hoja la primera vez.
+- Columnas: **ID · Día · Antes · Después · Origen · Detalle · Dispositivo · Registrado**.
+- **La hoja nunca se borra desde la app**: es el registro permanente. Si borras un registro en la app antes de que llegue a la hoja, igual se sube.
+- Todos tus dispositivos escriben en la misma hoja; la columna *Dispositivo* dice de cuál vino cada fila.
+- En la tarjeta de Google aparece el enlace **Ver historial en Google Sheets**.
+- Puedes moverla a otra carpeta o agregarla como fuente en un proyecto de Drive o Gemini. La app la sigue encontrando por nombre. Para que no se rompa:
+  - **No le cambies el nombre** ni a la hoja ni a la pestaña **Historial**.
+  - Si la mandas a la papelera, la app crea una nueva y sigue escribiendo ahí.
+  - Si ya tenías una carpeta `office-tracker` creada a mano, la app no la ve (por el permiso `drive.file`) y crea la suya. Borra la manual para no tener dos.
+
+### Desconectar o cambiar de Client ID
+
+- **Desconectar** (en la tarjeta de Google): cierra la sesión y olvida el Client ID en ese dispositivo. Opcionalmente borra el calendario Office Tracker de Google. Tus días marcados se quedan en el dispositivo y se vuelven a subir al conectar.
+- **Cambiar Client ID** (aparece con la sesión vencida): pega el nuevo. Con un Client ID de **otro proyecto**, la app no puede ver el calendario ni la hoja que creó el anterior (los permisos son por proyecto): bórralos a mano en Google Calendar → Configuración → Office Tracker → **Eliminar**, y en Drive.
+- Si cambian los permisos que pide la app, verás **Sesión vencida** al abrirla: toca **Reconectar** y acepta los permisos nuevos.
+
+### Solución de problemas
+
+| Lo que ves | Causa y solución |
+|---|---|
+| **«Acceso bloqueado: … no completó el proceso de verificación de Google» · Error 403: access_denied** | El proyecto está en modo Prueba y tu cuenta no es usuario de prueba. **Google Auth Platform → Público → Usuarios de prueba → + Agregar usuarios** → tu correo. Espera 1–2 minutos y reconecta. |
+| **«Google no verificó esta app»** | Normal en modo Prueba → **Continuar**. |
+| **«La Google … API no está activada en tu proyecto…»** | Habilita esa API en **APIs y servicios → Biblioteca** (paso 1). |
+| **«Faltan permisos…»** | Quedó alguna casilla sin marcar. **Reconectar** y marca todas. Revisa también **Acceso a datos** (paso 2.3). |
+| **Sesión vencida** | Pasó ~1 hora. **Reconectar**. |
+| **El chip de arriba dice «Error»** | La tarjeta de Google muestra el motivo exacto bajo *No se pudo sincronizar*. |
+| **Dos calendarios «Office Tracker»** | Se unen solos en la siguiente sincronización. Si vienen de otro Client ID, bórralos a mano. |
+| **Los avisos no suenan en Android** | App Google Calendar → Configuración → tu cuenta → **Office Tracker**: activa *Sincronizar* y las notificaciones. |
+| **Error de origen (`origin_mismatch`)** | En el Client ID, *Orígenes de JavaScript autorizados* debe ser exactamente `https://TU-USUARIO.github.io`. |
+
+**Si venías de la versión 2:** tus días se suben al calendario nuevo automáticamente. En la tarjeta de Google aparece **"Borrar N eventos viejos del calendario principal"**; tócalo una vez y Google te pedirá un permiso adicional solo para esa limpieza.
 
 ### Avisos de las 10:00 a. m. y 4:30 p. m.
 
@@ -87,13 +150,14 @@ La app programa en el calendario Office Tracker dos avisos de lunes a viernes (*
 - Cada toque se aplica en pantalla al instante, pero espera **5 segundos** antes de subirse, con una barra **Deshacer** abajo. Si sales de la app antes, se sube de inmediato.
 - Todo cambio queda en el **historial** con su origen: **Manual** (toque en la app), **Aviso ✓** (enlace de notificación con código verificado), **Aviso ⚠** (el código no corresponde a ese día), **Aviso ?** (no se pudo verificar), **Calendar** (editado desde Google Calendar) o **Deshecho**. También guarda la hora exacta, un id del cambio y el código del dispositivo.
 - **Mantén presionado un día** (o toca una fila del historial) para ver su detalle completo.
+- **Borrar registros:** cada fila del historial (en la tarjeta y en el detalle del día) tiene una papelera 🗑 para borrar ese registro, y la tarjeta tiene **Borrar todos** para los del mes visible. Solo se borran del historial de la app: los días marcados no cambian y los registros siguen en la hoja de Google Sheets.
 - El historial de cada día también queda escrito en la descripción del evento en Google Calendar, así que se puede revisar desde cualquier dispositivo.
 
 ---
 
 ## 🔄 Publicar actualizaciones
 
-Cada vez que subas cambios a GitHub Pages, abre `sw.js` y sube la versión (`const VERSION = 'v4'`, `'v5'`…). La app carga el HTML desde la red primero, así que basta con cerrarla y abrirla para ver la versión nueva.
+Cada vez que subas cambios a GitHub Pages, abre `sw.js` y sube la versión (`const VERSION = 'v8'` → `'v9'`…). La app carga el HTML desde la red primero, así que basta con cerrarla y abrirla para ver la versión nueva.
 
 ---
 
@@ -138,4 +202,4 @@ Un punto azul en la esquina de un día indica que ese cambio aún no se ha subid
 
 ---
 
-*Datos guardados en el dispositivo (localStorage). Con Google Calendar activado, también se sincronizan en tu calendario.*
+*Datos guardados en el dispositivo (localStorage). Con Google conectado, los días se sincronizan en tu calendario Office Tracker y el historial queda en Google Sheets.*

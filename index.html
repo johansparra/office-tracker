@@ -186,7 +186,7 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 .bk-ico{display:flex;justify-content:center;font-size:14px;color:var(--ok)}
 
 /* Historial */
-.log-row{display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;padding:10px 8px;margin:0 -8px;border-radius:12px;cursor:pointer}
+.log-row{display:grid;grid-template-columns:44px 1fr auto auto;gap:10px;align-items:center;padding:10px 8px;margin:0 -8px;border-radius:12px;cursor:pointer}
 .log-row+.log-row{box-shadow:0 -1px 0 var(--line)}
 .log-d{font-size:13px;font-weight:600;line-height:1.1}
 .log-d small{display:block;font-size:11px;font-weight:500;color:var(--faint)}
@@ -198,6 +198,11 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 .log-dev{font-size:11px;color:var(--vac)}
 .log-more{margin-top:6px;width:100%;border:none;background:var(--s2);color:var(--muted);border-radius:12px;padding:10px;font-size:13px;font-weight:500;cursor:pointer}
 .log-empty{font-size:13px;color:var(--faint);line-height:1.5}
+.log-del{display:grid;place-items:center;width:32px;height:32px;margin:-6px -4px -6px 0;border:none;border-radius:10px;background:none;color:var(--faint);cursor:pointer}
+.log-del .ic{font-size:15px}
+.log-del:hover,.log-del:focus-visible{color:var(--hol);background:var(--hol-soft)}
+.card-act{border:none;background:none;padding:0;font-size:12px;color:var(--faint);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.card-act:hover{color:var(--hol)}
 .t-office{color:var(--ok)}.t-vacation{color:var(--vac)}.t-null{color:var(--faint)}
 .badge{display:inline-flex;align-items:center;font-size:11px;font-weight:500;padding:2px 7px;border-radius:6px;white-space:nowrap}
 .b-manual{background:rgba(154,163,184,.12);color:var(--muted)}
@@ -262,6 +267,7 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 .dl-row{padding:12px 0;border-top:1px solid var(--line)}
 .dl-top{display:flex;align-items:center;gap:8px}
 .dl-ts{font-family:var(--mono);font-size:11.5px;color:var(--faint)}
+.dl-top .log-del{margin-left:auto}
 .dl-chg{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:500;margin-top:6px}
 .dl-chg .ic{font-size:15px}
 .dl-meta{font-size:12px;color:var(--faint);margin-top:4px;line-height:1.5}
@@ -366,7 +372,10 @@ const LS_DATA='ot-data-v2', LS_CID='ot-gcal-cid', LS_TOK='ot-gcal-token', LS_CAL
 const APP_ID='scotiatech-office-tracker', CAL_NAME='Office Tracker', TZ='America/Bogota';
 // app.created: solo calendarios que crea esta app. calendarlist.readonly: ver la lista de calendarios
 // (solo nombres) para encontrar el «Office Tracker» que otro dispositivo ya creó y no duplicarlo.
-const SCOPES=['https://www.googleapis.com/auth/calendar.app.created','https://www.googleapis.com/auth/calendar.calendarlist.readonly'];
+// drive.file: solo archivos que crea esta app (la hoja «Office Tracker · Historial»), no el resto de tu Drive.
+const SCOPES=['https://www.googleapis.com/auth/calendar.app.created','https://www.googleapis.com/auth/calendar.calendarlist.readonly',
+  'https://www.googleapis.com/auth/drive.file'];
+const SHEET_NAME='Office Tracker · Historial', SHEET_TAB='Historial', FOLDER_NAME='office-tracker';   // Mi unidad/office-tracker/
 const SCOPE=SCOPES.join(' ');
 const LEGACY_SCOPE='https://www.googleapis.com/auth/calendar.events';   // solo para limpiar eventos de la v2
 const SLOTS=[
@@ -395,6 +404,8 @@ const IC={
   sync:svg('<path d="M13.2 6.2A5.4 5.4 0 0 0 3.4 4.8M2.8 9.8a5.4 5.4 0 0 0 9.8 1.4"/><path d="M13.4 2.8v3.6H9.8M2.6 13.2V9.6h3.6"/>'),
   link:svg('<path d="M6.8 9.2a2.8 2.8 0 0 0 4 0l2-2a2.8 2.8 0 0 0-4-4l-.9.9M9.2 6.8a2.8 2.8 0 0 0-4 0l-2 2a2.8 2.8 0 0 0 4 4l.9-.9"/>'),
   x:svg('<path d="M4 4l8 8M12 4l-8 8"/>'),
+  trash:svg('<path d="M2.8 4.3h10.4M6.3 4.3V2.8h3.4v1.5M4.2 4.3l.6 8.9h6.4l.6-8.9M6.8 6.8v4M9.2 6.8v4"/>'),
+  sheet:svg('<rect x="2.5" y="2" width="11" height="12" rx="1.8"/><path d="M2.5 6h11M2.5 10h11M6.5 6v8"/>'),
 };
 const TYPE_UI={office:'Oficina',vacation:'Día libre',null:'Vacío'};
 const tchip=t=>`<span class="tchip t-${t||'null'}">${IC[t||'null']}${TYPE_UI[t||'null']}</span>`;
@@ -403,7 +414,7 @@ const tico=t=>`<span class="t-${t||'null'}">${IC[t||'null']}</span>`;
 function today(){ const d=new Date(); d.setHours(0,0,0,0); return d; }
 let now=today();
 const S={ year:now.getFullYear(), month:now.getMonth(),
-  data:{}, evIds:{}, pending:{}, log:[], rem:{}, nonces:{}, skip:{}, legacy:{},
+  data:{}, evIds:{}, pending:{}, log:[], logOut:[], sheetId:null, rem:{}, nonces:{}, skip:{}, legacy:{},
   token:null, tokenExp:0, cid:null, calId:null, calChecked:false, dev:null,
   syncing:0, lastError:null, showAllLog:false };
 
@@ -494,7 +505,7 @@ function stats(){
 // ═══════════════════════════════════════════════════════════
 function save(){
   try{ localStorage.setItem(LS_DATA,JSON.stringify({v:3,data:S.data,evIds:S.evIds,pending:S.pending,log:S.log,
-    rem:S.rem,nonces:S.nonces,skip:S.skip,legacy:S.legacy})); }catch(_){}
+    rem:S.rem,nonces:S.nonces,skip:S.skip,legacy:S.legacy,logOut:S.logOut,sheetId:S.sheetId})); }catch(_){}
 }
 function load(){
   try{
@@ -503,7 +514,7 @@ function load(){
       S.data=p.data||{};
       if(p.v===3){
         Object.assign(S,{evIds:p.evIds||{},pending:p.pending||{},log:p.log||[],rem:p.rem||{},
-          nonces:p.nonces||{},skip:p.skip||{},legacy:p.legacy||{}});
+          nonces:p.nonces||{},skip:p.skip||{},legacy:p.legacy||{},logOut:p.logOut||[],sheetId:p.sheetId||null});
       }else{
         // Migración desde v1/v2: los eventos viejos están en el calendario principal.
         // Se guardan aparte para poder borrarlos, y todo lo local se sube al calendario nuevo.
@@ -601,7 +612,7 @@ async function connect(){
 // y se vuelve a subir completo al conectar de nuevo.
 function resetConnection(){
   clearToken(); tokenClient=null; tokenClientCid=null; legacyClient=null;
-  S.cid=null; S.calId=null; S.calChecked=false; S.evIds={}; S.rem={}; S.lastError=null;
+  S.cid=null; S.calId=null; S.calChecked=false; S.evIds={}; S.rem={}; S.lastError=null; S.sheetId=null;
   Object.keys(S.data).forEach(k=>{ S.pending[k]=true; });
   try{ localStorage.removeItem(LS_CID); localStorage.removeItem(LS_CAL); }catch(_){}
   save();
@@ -623,7 +634,8 @@ class AuthError extends Error{}
 
 async function gcal(method,path,body){
   if(!hasToken()) throw new AuthError('sin token');
-  const r=await fetch(`https://www.googleapis.com/calendar/v3${path}`,{
+  const url=path.startsWith('https://')?path:`https://www.googleapis.com/calendar/v3${path}`;   // Sheets/Drive pasan la URL completa
+  const r=await fetch(url,{
     method,
     headers:{'Authorization':`Bearer ${S.token}`,'Content-Type':'application/json'},
     body:body?JSON.stringify(body):undefined
@@ -635,11 +647,12 @@ async function gcal(method,path,body){
     // Se muestra el motivo real que da Google, no solo el código
     let j=null; try{ j=await r.json(); }catch(_){}
     const reason=j?.error?.errors?.[0]?.reason||j?.error?.details?.find(d=>d.reason)?.reason||'', gm=j?.error?.message||'';
+    const api=gm.match(/Google [A-Za-z ]+? API/)?.[0]||'Google Calendar API';
     const msg=reason==='accessNotConfigured'||reason==='SERVICE_DISABLED'||/has not been used|is disabled/i.test(gm)
-        ?'La Google Calendar API no está activada en tu proyecto de Google Cloud (APIs y servicios → Biblioteca → Google Calendar API → Habilitar)'
+        ?`La ${api} no está activada en tu proyecto de Google Cloud (APIs y servicios → Biblioteca → ${api} → Habilitar)`
       :reason==='insufficientPermissions'||reason==='ACCESS_TOKEN_SCOPE_INSUFFICIENT'||/insufficient.*scope/i.test(gm)
         ?'Faltan permisos: toca Reconectar y marca todas las casillas de Google Calendar'
-      :`Google Calendar respondió ${r.status}${gm?`: ${gm}`:''}`;
+      :`Google respondió ${r.status}${gm?`: ${gm}`:''}`;
     console.error('[gcal]',method,path,r.status,j);
     throw Object.assign(new Error(msg),{status:r.status,reason});
   }
@@ -839,6 +852,55 @@ async function reconcileReminders(){
   save();
 }
 
+// ── Registro permanente: hoja de Google «Office Tracker · Historial» ──
+// Cada cambio del historial se agrega como fila y nunca se borra de ahí, aunque se borre en la app.
+// Se busca por nombre en Drive (drive.file solo ve archivos de esta app), así todos los dispositivos usan la misma.
+const SHEETS='https://sheets.googleapis.com/v4/spreadsheets', DRIVE='https://www.googleapis.com/drive/v3/files';
+async function ensureFolder(){
+  const q=`name='${FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  const r=await gcal('GET',`${DRIVE}?q=${enc(q)}&orderBy=createdTime&fields=files(id)`);
+  if(r?.files?.[0]) return r.files[0].id;
+  return (await gcal('POST',`${DRIVE}?fields=id`,{name:FOLDER_NAME,mimeType:'application/vnd.google-apps.folder',parents:['root']})).id;
+}
+async function ensureSheet(){
+  if(S.sheetId) return;
+  const q=`name='${SHEET_NAME}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`;
+  const r=await gcal('GET',`${DRIVE}?q=${enc(q)}&orderBy=createdTime&fields=files(id)`);
+  let id=r?.files?.[0]?.id;
+  if(!id){
+    // Se crea dentro de la carpeta «office-tracker» en la raíz de Mi unidad
+    const c=await gcal('POST',`${DRIVE}?fields=id`,{name:SHEET_NAME,mimeType:'application/vnd.google-apps.spreadsheet',parents:[await ensureFolder()]});
+    id=c.id;
+    const tab=(await gcal('GET',`${SHEETS}/${id}?fields=sheets.properties.sheetId`))?.sheets?.[0]?.properties?.sheetId??0;
+    await gcal('POST',`${SHEETS}/${id}:batchUpdate`,{requests:[
+      {updateSpreadsheetProperties:{properties:{timeZone:TZ},fields:'timeZone'}},
+      {updateSheetProperties:{properties:{sheetId:tab,title:SHEET_TAB,gridProperties:{frozenRowCount:1}},fields:'title,gridProperties.frozenRowCount'}}]});
+    await gcal('PUT',`${SHEETS}/${id}/values/${enc(`${SHEET_TAB}!A1:H1`)}?valueInputOption=RAW`,
+      {values:[['ID','Día','Antes','Después','Origen','Detalle','Dispositivo','Registrado']]});
+  }
+  S.sheetId=id; save();
+}
+const fmtFull=ts=>{ const d=new Date(ts); return `${toKey(d)} ${p2(d.getHours())}:${p2(d.getMinutes())}`; };
+async function syncSheet(retry=true){
+  const rows=[...S.logOut,...S.log.filter(e=>!e.up)];
+  if(!rows.length) return;
+  await ensureSheet();
+  const r=await gcal('POST',`${SHEETS}/${enc(S.sheetId)}/values/${enc(`${SHEET_TAB}!A1`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+    {values:rows.map(e=>[e.id,e.d,TYPE_UI[e.from],TYPE_UI[e.to],srcBadge(e)[1],srcText(e),e.dev,fmtFull(e.ts)])});
+  if(r?.notFound){ S.sheetId=null; save(); if(retry) await syncSheet(false); return; }   // borraste la hoja → se crea otra
+  rows.forEach(e=>{ e.up=true; });
+  S.logOut=S.logOut.filter(e=>!rows.includes(e)); save();
+}
+// Borra registros del historial de la app. Los que aún no llegaron a la hoja se guardan aparte
+// para subirlos igual: lo borrado en la app sigue registrado en la hoja.
+function deleteLog(ids){
+  const del=new Set(ids);
+  for(const e of S.log) if(del.has(e.id)&&!e.up) S.logOut.push(e);
+  S.log=S.log.filter(e=>!del.has(e.id));
+  save(); render();
+  if(hasToken()) enqueue(()=>syncSheet()).then(render);
+}
+
 // Cola: todo lo que va a Calendar se ejecuta en orden, uno por uno
 let chain=Promise.resolve();
 function enqueue(fn){
@@ -858,6 +920,7 @@ async function syncAll(){
     await ensureCalendar();
     await reconcileMonth(year,month);
     await reconcileReminders();
+    await syncSheet();
   });
   S.syncing--; render();
 }
@@ -893,6 +956,7 @@ function schedulePush(key,delay=UNDO_MS){
 }
 function flushPushes(){
   for(const k of Object.keys(timers)){ clearTimeout(timers[k]); delete timers[k]; if(online()) enqueue(()=>pushDay(k)); }
+  if(hasToken()) enqueue(()=>syncSheet());
   hideUndo();
 }
 function applyChange(key,next,src,meta={}){
@@ -1010,12 +1074,14 @@ function openDaySheet(key){
     <div class="state-row">${tchip(st)} ${sync}</div>
     <div class="day-log">${es.length?es.map(e=>{const [c,l]=srcBadge(e);return `
       <div class="dl-row">
-        <div class="dl-top"><span class="badge ${c}">${l}</span><span class="dl-ts">${fmtTs(e.ts)}</span></div>
+        <div class="dl-top"><span class="badge ${c}">${l}</span><span class="dl-ts">${fmtTs(e.ts)}</span>
+          <button class="log-del press" data-del="${e.id}" aria-label="Borrar este registro">${IC.trash}</button></div>
         <div class="dl-chg">${tico(e.from)}${TYPE_UI[e.from]} <span class="t-null">→</span> ${tico(e.to)}${TYPE_UI[e.to]}</div>
         <div class="dl-meta">${srcText(e)} · disp. ${e.dev}${e.dev===S.dev?' (este)':''} · id ${e.id}</div>
       </div>`;}).join(''):'<p>Sin cambios registrados para este día.</p>'}</div>
     <div class="sheet-btns"><button class="btn-s press" id="sheet-close">Cerrar</button></div>`);
   document.getElementById('sheet-close').addEventListener('click',closeSheet);
+  document.querySelectorAll('#sheet-body .log-del').forEach(el=>el.addEventListener('click',()=>{ deleteLog([el.dataset.del]); openDaySheet(key); }));
 }
 function openSheet(html){ document.getElementById('sheet-body').innerHTML=html; showOv('sheet'); }
 function closeSheet(){ hideOv('sheet'); }
@@ -1105,7 +1171,7 @@ function render(){
   const prefix=`${year}-${p2(month+1)}`;
   const mLog=S.log.filter(e=>e.d.startsWith(prefix)).slice().reverse();
   const shown=S.showAllLog?mLog:mLog.slice(0,6);
-  document.getElementById('history').innerHTML=`<div class="card-hd"><span class="card-ttl">Historial de cambios</span>${mLog.length?`<span class="card-sub">${mLog.length} este mes</span>`:''}</div>`+
+  document.getElementById('history').innerHTML=`<div class="card-hd"><span class="card-ttl">Historial de cambios</span>${mLog.length?`<span class="card-sub">${mLog.length} este mes · <button class="card-act press" id="btn-log-clear">Borrar todos</button></span>`:''}</div>`+
     (mLog.length?shown.map(e=>{const [c,l]=srcBadge(e);const d=fromKey(e.d);return `
       <div class="log-row press" data-day="${e.d}" role="button" tabindex="0">
         <div class="log-d">${d.getDate()}<small>${DOW[d.getDay()]}</small></div>
@@ -1114,6 +1180,7 @@ function render(){
           <span class="badge ${c}">${l}</span>${e.dev!==S.dev?'<span class="log-dev">otro disp.</span>':''}
         </div>
         <span class="log-ts">${fmtTs(e.ts)}</span>
+        <button class="log-del press" data-del="${e.id}" aria-label="Borrar este registro">${IC.trash}</button>
       </div>`;}).join('')+(mLog.length>6?`<button class="log-more press" id="btn-log-more">${S.showAllLog?'Ver menos':`Ver los ${mLog.length}`}</button>`:'')
     :'<div class="log-empty">Aún no hay cambios este mes. Toca un día para marcarlo.</div>');
 
@@ -1126,7 +1193,7 @@ function render(){
     <div class="gcal-status"><strong>${S.syncing?'<i class="dot sync pulse"></i>':S.lastError?'<i class="dot warn"></i>':pc?'<i class="dot sync"></i>':'<i class="dot ok"></i>'}Google Calendar</strong>
       ${S.syncing?'Sincronizando…':S.lastError?'No se pudo sincronizar':pc?`${pc} cambio${pc>1?'s':''} por subir`:`Calendario «${CAL_NAME}» al día`}${err}
       ${lc?`<button class="gcal-link" id="btn-legacy">Borrar ${lc} evento${lc>1?'s':''} viejo${lc>1?'s':''} del calendario principal</button><br>`:''}
-      <button class="gcal-link" id="btn-disconnect">Desconectar</button></div>
+      ${S.sheetId?`<a class="gcal-link" href="https://docs.google.com/spreadsheets/d/${S.sheetId}" target="_blank" rel="noopener">Ver historial en Google Sheets</a> · `:''}<button class="gcal-link" id="btn-disconnect">Desconectar</button></div>
     <button class="gcal-btn press ${S.syncing?'syncing':''}" id="btn-sync" aria-label="Sincronizar">${IC.sync}${S.syncing?'':'Sync'}</button>`;
     chip.innerHTML=`<span class="chip">${S.syncing?'<i class="dot sync pulse"></i>Sincronizando':S.lastError?'<i class="dot warn"></i>Error':pc?`<i class="dot sync"></i>${pc} por subir`:'<i class="dot ok"></i>Al día'}</span>`;
   } else if(S.cid){
@@ -1154,6 +1221,11 @@ function render(){
     el.addEventListener('keydown',e=>{ if(e.key==='Enter'){ openDaySheet(el.dataset.day); } });
   });
   document.getElementById('btn-log-more')?.addEventListener('click',()=>{ S.showAllLog=!S.showAllLog; render(); });
+  document.querySelectorAll('#history .log-del').forEach(el=>el.addEventListener('click',e=>{ e.stopPropagation(); deleteLog([el.dataset.del]); }));
+  document.getElementById('btn-log-clear')?.addEventListener('click',()=>{
+    if(!confirm(`¿Borrar los ${mLog.length} registros de ${MONTHS[month].toLowerCase()} del historial de la app?\n\nTus días marcados no cambian, y los registros quedan guardados en la hoja «${SHEET_NAME}» de Google.`)) return;
+    deleteLog(mLog.map(e=>e.id));
+  });
   document.getElementById('btn-connect')?.addEventListener('click',showModal);
   document.getElementById('btn-cid')?.addEventListener('click',showModal);
   document.getElementById('btn-reconnect')?.addEventListener('click',connect);
