@@ -124,13 +124,17 @@ Menú ☰ → **APIs y servicios → Pantalla de consentimiento de OAuth**. En l
 | Cuenta Google | `tu@gmail.com` | Cuenta conectada |
 | Versión app · Zona horaria | `v9` · `America/Bogota` | Versión y zona del dispositivo |
 | Subido a la hoja | `2026-10-03T21:30:00.000-05:00` | Cuándo llegó a la hoja |
+| Datos (JSON) | `{"id":"e5b07221",…}` | El registro completo; la app lo usa para leer el historial de vuelta exacto. No lo edites |
 
 - La app revisa la hoja una vez por sesión y la repara sola: si falta la pestaña **Historial**, los títulos o el formato, los vuelve a poner.
 - **La hoja nunca se borra desde la app**: es el registro permanente. Si borras un registro en la app antes de que llegue a la hoja, igual se sube.
 - Todos tus dispositivos escriben en la misma hoja; la columna *Dispositivo* dice de cuál vino cada fila.
+- **El historial de la app es compartido:** en cada sincronización la app lee la hoja y muestra los registros de **todos** tus dispositivos (los de otro dispositivo llevan la etiqueta *otro disp.*). Lo que marcas en el celular aparece en el historial del PC y al revés.
+- Cuando un dispositivo recibe por Calendar un cambio que hizo otro, no lo registra dos veces: solo queda el registro original (*Manual*, *Aviso*…). Los cambios hechos directamente en Google Calendar sí quedan como *Calendar*.
+- **Borrar en la app oculta en todos los dispositivos:** el id del registro se anota en la pestaña **Ocultos** de la misma hoja. La fila del log **no** se borra.
 - En la tarjeta de Google aparece el enlace **Ver historial en Google Sheets**.
 - Puedes moverla a otra carpeta o agregarla como fuente en un proyecto de Drive o Gemini. La app la sigue encontrando por nombre. Para que no se rompa:
-  - **No le cambies el nombre** ni a la hoja ni a la pestaña **Historial**.
+  - **No le cambies el nombre** ni a la hoja ni a las pestañas **Historial** y **Ocultos**, y no reordenes las filas del Historial (la app lee solo las filas nuevas).
   - Si la mandas a la papelera, la app crea una nueva y sigue escribiendo ahí.
   - Si ya tenías una carpeta `office-tracker` creada a mano, la app no la ve (por el permiso `drive.file`) y crea la suya. Borra la manual para no tener dos.
 
@@ -177,7 +181,7 @@ La app programa en el calendario Office Tracker dos avisos de lunes a viernes (*
 
 ## 🔄 Publicar actualizaciones
 
-Cada vez que subas cambios a GitHub Pages, abre `sw.js` y sube la versión (`const VERSION = 'v9'` → `'v10'`…), y pon el mismo valor en `APP_VER` dentro de `index.html` (sale en la columna *Versión app* del log). La app carga el HTML desde la red primero, así que basta con cerrarla y abrirla para ver la versión nueva.
+Cada vez que subas cambios a GitHub Pages, abre `sw.js` y sube la versión (`const VERSION = 'v11'` → `'v12'`…), y pon el mismo valor en `APP_VER` dentro de `index.html` (sale en la columna *Versión app* del log). La app carga el HTML desde la red primero, así que basta con cerrarla y abrirla para ver la versión nueva.
 
 ---
 
@@ -200,6 +204,17 @@ Los festivos se calculan **automáticamente** para cualquier año:
 - **Meta ajustada:** `8 − número de semanas con festivo/vacación`
 - Los festivos cuentan **cualquier día de la semana**, incluso sábado o domingo
 - **Semanas que cruzan de mes:** la semana se muestra completa, pero solo cuentan los días del mes visible (visitas, festivos y vacaciones). Ningún día suma en dos meses.
+- **Lo ideal es 2 por semana, pero lo que manda es la meta del mes.** La app cuenta los **días hábiles libres** que quedan (lunes a viernes, desde hoy, sin festivos y sin días ya marcados) y los compara con las visitas que te faltan:
+
+| Situación | Lo que ves |
+|---|---|
+| Te sobran más de 2 días hábiles | ✅ *Vas bien* y tu margen |
+| Te sobran 1 o 2 | ⚠️ *Poco margen: solo puedes faltar N* |
+| Faltan exactamente los días hábiles que quedan | 🚨 **Tienes que ir sí o sí** y la lista de días |
+| Faltan más que los días hábiles que quedan | 🚨 **No alcanzas la meta** y la lista de días que aún puedes ir |
+
+- Cuando la alerta es *sí o sí*, esos días se marcan en el calendario con un **borde rojo punteado** (leyenda *Obligatorio*), y el aviso de las 10:00 a. m. de esos días cambia a **"⚠️ Hoy tienes que ir a la oficina"**.
+- Ejemplo (octubre 2026, meta 7 por el festivo del 12): el lunes 26 llevas 2 visitas → faltan 5 y quedan 5 días hábiles (26 al 30) → los 5 son obligatorios.
 
 ---
 
@@ -219,6 +234,13 @@ Los festivos se calculan **automáticamente** para cualquier año:
 Los festivos de Colombia (franja amarillo-azul-rojo) son automáticos — no necesitas marcarlos.
 
 Un punto azul en la esquina de un día indica que ese cambio aún no se ha subido a Google Calendar.
+
+### Indicadores de sincronización y versión
+
+- Mientras la app habla con Google (subir un día, traer cambios, actualizar avisos, escribir en el log) aparece una **barra azul animada arriba de la pantalla**, el chip del encabezado gira con **Sincronizando** y la tarjeta de Google dice en qué paso va: *Buscando el calendario…*, *Sincronizando días…*, *Actualizando avisos…*, *Escribiendo en el log…*.
+- Al terminar, la tarjeta dice **Al día · HH:MM** con la hora de la última sincronización.
+- La **versión** de la app (`v11`, …) se ve arriba junto a *ScotiaTech · GBS* y al final de la página. Debe coincidir con la última publicada; si no, cierra y abre la app (en PC, **Ctrl+Shift+R**).
+- **Ver log**: en la tarjeta de historial, en el detalle de cada día y en la tarjeta de Google hay un enlace directo a la hoja de Google Sheets.
 
 ---
 

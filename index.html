@@ -157,6 +157,12 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 .sw.v{background:var(--vac-soft);border-color:var(--vac-line)}
 .sw.h{background:var(--hol-soft);border-color:transparent}
 .sw.t{border-color:var(--brand)}
+.sw.m{border:1.5px dashed var(--hol)}
+.day-cell.must:not(.s-office){outline:1.5px dashed var(--hol);outline-offset:-4px}
+.must-alert{display:flex;gap:10px;align-items:flex-start;margin-top:12px;padding:12px;border-radius:var(--r-md);background:var(--hol-soft);border:1px solid var(--hol);font-size:13px;line-height:1.5;color:var(--text)}
+.must-alert>.ic{font-size:18px;margin-top:1px;color:var(--hol);flex-shrink:0}
+.must-days{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.must-days span{font-size:12px;font-weight:600;padding:3px 8px;border-radius:99px;background:var(--s1);border:1px solid var(--line2)}
 .hint{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:var(--ghost)}
 
 /* Bandera Colombia */
@@ -203,6 +209,9 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 .log-del:hover,.log-del:focus-visible{color:var(--hol);background:var(--hol-soft)}
 .card-act{border:none;background:none;padding:0;font-size:12px;color:var(--faint);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 .card-act:hover{color:var(--hol)}
+.card-link{display:inline-flex;align-items:center;gap:4px;color:var(--sync);text-decoration:none;font-size:12px}
+.card-link .ic{font-size:13px}
+.card-link:hover{text-decoration:underline}
 .t-office{color:var(--ok)}.t-vacation{color:var(--vac)}.t-null{color:var(--faint)}
 .badge{display:inline-flex;align-items:center;font-size:11px;font-weight:500;padding:2px 7px;border-radius:6px;white-space:nowrap}
 .b-manual{background:rgba(154,163,184,.12);color:var(--muted)}
@@ -221,7 +230,13 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 .gcal-btn{border:none;background:var(--s2);color:var(--text);border-radius:12px;padding:10px 14px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;flex-shrink:0}
 .gcal-btn.primary{background:var(--brand);color:#fff}
 .gcal-btn .ic{font-size:15px}
-.gcal-btn.syncing .ic{animation:spin .9s linear infinite}
+.gcal-btn.syncing .ic,.spin .ic{animation:spin .9s linear infinite}
+.spin{display:inline-grid;color:var(--sync);font-size:13px}
+/* Barra superior mientras hay algo sincronizándose */
+.topbar{position:fixed;top:0;left:0;right:0;height:3px;z-index:200;overflow:hidden;opacity:0;transition:opacity 200ms ease;pointer-events:none}
+.topbar.on{opacity:1}
+.topbar::after{content:'';position:absolute;top:0;bottom:0;width:40%;background:linear-gradient(90deg,transparent,var(--sync),transparent);animation:slide 1.1s ease-in-out infinite}
+@keyframes slide{from{left:-40%}to{left:100%}}
 @keyframes spin{to{transform:rotate(360deg)}}
 .gcal-link{display:inline-block;margin-top:4px;font-size:12px;color:var(--sync);background:none;border:none;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 .footer{text-align:center;font-size:11.5px;line-height:1.6;color:var(--ghost);padding:4px 16px 0;text-wrap:balance}
@@ -288,16 +303,17 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
   .toast,.bk-bar,.day-cell,.press{transition:none}
   .top,.stack>*,.segs.done .seg b::after{animation:none}
   .modal,.modal-ov{animation:fadeIn 150ms ease-out}
-  .toast-bar,.dot.pulse,.gcal-btn.syncing .ic{animation:none!important}
+  .toast-bar,.dot.pulse,.gcal-btn.syncing .ic,.spin .ic,.topbar::after{animation:none!important}
 }
 </style>
 </head>
 <body>
+<div class="topbar" id="topbar" aria-hidden="true"></div>
 <div class="wrap">
   <header class="top">
     <div class="brand">
       <img class="brand-ic" src="icon-192.png" alt="">
-      <div><div class="brand-tag">ScotiaTech · GBS</div><div class="brand-title">Office Tracker</div></div>
+      <div><div class="brand-tag">ScotiaTech · GBS · <span id="app-ver"></span></div><div class="brand-title">Office Tracker</div></div>
     </div>
     <div id="sync-chip"></div>
   </header>
@@ -322,6 +338,7 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
         <span class="leg"><i class="sw v"></i>Día libre</span>
         <span class="leg"><i class="co"></i>Festivo</span>
         <span class="leg"><i class="sw t"></i>Hoy</span>
+        <span class="leg"><i class="sw m"></i>Obligatorio</span>
       </div>
       <div class="hint"><svg class="ic" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 7.2v3.6M8 5.2v.1"/></svg>Toca para marcar · mantén para historial · desliza para cambiar de mes</div>
     </section>
@@ -330,7 +347,7 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
     <section class="card" id="breakdown"></section>
     <section class="card" id="history"></section>
 
-    <footer class="footer">Meta = 8 − semanas con festivo o día libre · Solo cuentan los días del mes visible · Los datos se guardan en este dispositivo</footer>
+    <footer class="footer">Meta = 8 − semanas con festivo o día libre · Solo cuentan los días del mes visible · Los datos se guardan en este dispositivo<br>Office Tracker <span id="app-ver2"></span></footer>
   </main>
 </div>
 
@@ -375,7 +392,8 @@ const APP_ID='scotiatech-office-tracker', CAL_NAME='Office Tracker', TZ='America
 // drive.file: solo archivos que crea esta app (la hoja «Office Tracker · Historial»), no el resto de tu Drive.
 const SCOPES=['https://www.googleapis.com/auth/calendar.app.created','https://www.googleapis.com/auth/calendar.calendarlist.readonly',
   'https://www.googleapis.com/auth/drive.file'];
-const APP_VER='v10';   // igual que VERSION en sw.js: súbelos juntos al publicar
+const APP_VER='v11';   // igual que VERSION en sw.js: súbelos juntos al publicar
+const HIDE_TAB='Ocultos';   // ids de registros borrados en la app (para que se oculten en todos los dispositivos)
 const SHEET_NAME='Office Tracker · Historial', SHEET_TAB='Historial', FOLDER_NAME='office-tracker';   // Mi unidad/office-tracker/
 const SCOPE=SCOPES.join(' ');
 const LEGACY_SCOPE='https://www.googleapis.com/auth/calendar.events';   // solo para limpiar eventos de la v2
@@ -415,9 +433,9 @@ const tico=t=>`<span class="t-${t||'null'}">${IC[t||'null']}</span>`;
 function today(){ const d=new Date(); d.setHours(0,0,0,0); return d; }
 let now=today();
 const S={ year:now.getFullYear(), month:now.getMonth(),
-  data:{}, evIds:{}, pending:{}, log:[], logOut:[], sheetId:null, account:null, rem:{}, nonces:{}, skip:{}, legacy:{},
+  data:{}, evIds:{}, pending:{}, log:[], logOut:[], sheetId:null, account:null, hidden:{}, hideOut:[], rem:{}, nonces:{}, skip:{}, legacy:{},
   token:null, tokenExp:0, cid:null, calId:null, calChecked:false, dev:null,
-  syncing:0, lastError:null, showAllLog:false };
+  syncing:0, busy:0, step:'', lastSync:0, lastError:null, showAllLog:false };
 
 // ═══════════════════════════════════════════════════════════
 // HELPERS
@@ -475,8 +493,8 @@ function weeks(y,mo){
   while(m<=last){ ws.push({mon:new Date(m),sun:addD(m,6)}); m=addD(m,7); }
   return ws;
 }
-function stats(){
-  const {year,month,data}=S;
+function stats(year=S.year,month=S.month){
+  const data=S.data;
   const ws=weeks(year,month).map(w=>{
     let hasAdj=false,visited=0,openDays=0;
     for(let d=new Date(w.mon);d<=w.sun;d=addD(d,1)){
@@ -498,7 +516,15 @@ function stats(){
   const canMax=active.reduce((s,w)=>s+Math.min(Math.max(0,w.quota-w.visited),w.openDays),0);
   const mHols=Object.entries(holidays(year)).filter(([k])=>k.startsWith(`${year}-${p2(month+1)}`)).sort();
   const upHols=mHols.map(([k,n])=>({date:fromKey(k),name:n})).filter(h=>h.date>now);
-  return{ws,adjN,target,visited,remaining,pct,done,active,canMax,upHols,mHols};
+  // Días hábiles que quedan (lun–vie, sin festivo, sin marcar, desde hoy). Lo ideal son 2 por semana,
+  // pero lo que manda es la meta del mes: si los días que faltan ≥ los que quedan, todos son obligatorios.
+  const open=[];
+  for(let d=new Date(Math.max(now,new Date(year,month,1)));inMonth(d,year,month);d=addD(d,1)){
+    const k=toKey(d); if(!isWeekend(d)&&!getHol(d)&&!data[k]) open.push(k);
+  }
+  const slack=open.length-remaining;                        // días hábiles que aún puedes faltar
+  const must=!done&&remaining>0&&slack<=0?open:[];
+  return{ws,adjN,target,visited,remaining,pct,done,active,canMax,upHols,mHols,open,slack,must};
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -506,7 +532,7 @@ function stats(){
 // ═══════════════════════════════════════════════════════════
 function save(){
   try{ localStorage.setItem(LS_DATA,JSON.stringify({v:3,data:S.data,evIds:S.evIds,pending:S.pending,log:S.log,
-    rem:S.rem,nonces:S.nonces,skip:S.skip,legacy:S.legacy,logOut:S.logOut,sheetId:S.sheetId,account:S.account})); }catch(_){}
+    rem:S.rem,nonces:S.nonces,skip:S.skip,legacy:S.legacy,logOut:S.logOut,sheetId:S.sheetId,account:S.account,hidden:S.hidden,hideOut:S.hideOut})); }catch(_){}
 }
 function load(){
   try{
@@ -515,7 +541,7 @@ function load(){
       S.data=p.data||{};
       if(p.v===3){
         Object.assign(S,{evIds:p.evIds||{},pending:p.pending||{},log:p.log||[],rem:p.rem||{},
-          nonces:p.nonces||{},skip:p.skip||{},legacy:p.legacy||{},logOut:p.logOut||[],sheetId:p.sheetId||null,account:p.account||null});
+          nonces:p.nonces||{},skip:p.skip||{},legacy:p.legacy||{},logOut:p.logOut||[],sheetId:p.sheetId||null,account:p.account||null,hidden:p.hidden||{},hideOut:p.hideOut||[]});
       }else{
         // Migración desde v1/v2: los eventos viejos están en el calendario principal.
         // Se guardan aparte para poder borrarlos, y todo lo local se sube al calendario nuevo.
@@ -613,7 +639,7 @@ async function connect(){
 // y se vuelve a subir completo al conectar de nuevo.
 function resetConnection(){
   clearToken(); tokenClient=null; tokenClientCid=null; legacyClient=null;
-  S.cid=null; S.calId=null; S.calChecked=false; S.evIds={}; S.rem={}; S.lastError=null; S.sheetId=null; S.account=null; sheetReady=false;
+  S.cid=null; S.calId=null; S.calChecked=false; S.evIds={}; S.rem={}; S.lastError=null; S.sheetId=null; S.account=null; sheetReady=false; sheetRead=0;
   Object.keys(S.data).forEach(k=>{ S.pending[k]=true; });
   try{ localStorage.removeItem(LS_CID); localStorage.removeItem(LS_CAL); }catch(_){}
   save();
@@ -785,13 +811,13 @@ async function reconcileMonth(year,month){
     for(const e of evs) if(e!==keep) await delEvent(e.id);
     S.evIds[ds]=keep.id;
     if(!S.pending[ds]&&S.data[ds]!==keep.type){
-      logChange({d:ds,from:S.data[ds]||null,to:keep.type,src:'calendar'});
+      if(!explained(ds,keep.type)) logChange({d:ds,from:S.data[ds]||null,to:keep.type,src:'calendar'});
       S.data[ds]=keep.type;
     }
   }
   for(const ds of Object.keys(S.evIds)){
     if(ds.startsWith(prefix)&&!byDay[ds]&&!S.pending[ds]){
-      if(S.data[ds]) logChange({d:ds,from:S.data[ds],to:null,src:'calendar'});
+      if(S.data[ds]&&!explained(ds,null)) logChange({d:ds,from:S.data[ds],to:null,src:'calendar'});
       delete S.evIds[ds]; delete S.data[ds];
     }
   }
@@ -800,10 +826,15 @@ async function reconcileMonth(year,month){
 }
 
 // ── Avisos 10:00 y 16:30 (lun–vie, sin festivos, sin días ya marcados) ──
+// En un día obligatorio para llegar a la meta, el aviso de las 10:00 lo dice
+function reminderTitle(key,slot){
+  const d=fromKey(key);
+  return slot==='r10'&&stats(d.getFullYear(),d.getMonth()).must.includes(key)?'⚠️ Hoy tienes que ir a la oficina':slotOf(slot).title;
+}
 function reminderBody(key,slot,nonce){
   const sl=slotOf(slot);
   return {
-    summary:sl.title, transparency:'transparent',
+    summary:reminderTitle(key,slot), transparency:'transparent',
     start:{dateTime:`${key}T${p2(sl.h)}:${p2(sl.m)}:00`,timeZone:TZ},
     end:{dateTime:`${key}T${p2(sl.h)}:${p2(sl.m+5)}:00`,timeZone:TZ},
     description:`Toca el enlace para registrar el día:\n${APP_URL}?d=${key}&r=${slot}&n=${nonce}`,
@@ -829,7 +860,11 @@ async function syncRemindersForDate(key){
     if(want.has(sl.id)&&!have){
       const nonce=rid(4);
       const r=await gcal('POST',`${calPath()}/events`,reminderBody(key,sl.id,nonce));
-      if(r?.id){ S.rem[k]={id:r.id,nonce}; S.nonces[nonce]={d:key,slot:sl.id}; }
+      if(r?.id){ S.rem[k]={id:r.id,nonce,t:reminderTitle(key,sl.id)}; S.nonces[nonce]={d:key,slot:sl.id}; }
+    }else if(want.has(sl.id)&&have&&have.t!==reminderTitle(key,sl.id)){
+      const t=reminderTitle(key,sl.id);   // el día pasó a ser (o dejó de ser) obligatorio
+      const r=await gcal('PATCH',`${calPath()}/events/${enc(have.id)}`,{summary:t});
+      if(r?.notFound) delete S.rem[k]; else have.t=t;
     }else if(!want.has(sl.id)&&have){
       await delEvent(have.id); delete S.rem[k];
     }
@@ -844,7 +879,7 @@ async function reconcileReminders(){
     const p=ev.extendedProperties?.private||{}, k=`${p.date}|${p.slot}`;
     if(p.nonce) S.nonces[p.nonce]={d:p.date,slot:p.slot};
     if(fresh[k]||!p.date||p.date<yest){ await delEvent(ev.id); continue; }   // duplicado o viejo
-    fresh[k]={id:ev.id,nonce:p.nonce};
+    fresh[k]={id:ev.id,nonce:p.nonce,t:ev.summary};
   }
   const a=toKey(from), b=toKey(to);
   for(const k of Object.keys(S.rem)){ const d=k.split('|')[0]; if(d>=a&&d<=b) delete S.rem[k]; }
@@ -857,6 +892,7 @@ async function reconcileReminders(){
 // ── Registro permanente: hoja de Google «Office Tracker · Historial» ──
 // Cada cambio del historial se agrega como fila y nunca se borra de ahí, aunque se borre en la app.
 // Se busca por nombre en Drive (drive.file solo ve archivos de esta app), así todos los dispositivos usan la misma.
+const sheetUrl=()=>`https://docs.google.com/spreadsheets/d/${S.sheetId}/edit`;
 const SHEETS='https://sheets.googleapis.com/v4/spreadsheets', DRIVE='https://www.googleapis.com/drive/v3/files';
 async function ensureFolder(){
   const q=`name='${FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
@@ -886,8 +922,10 @@ async function setupSheet(){
   if(m?.notFound){ S.sheetId=null; save(); return ensureSheet(); }   // la borraste → se crea otra
   const tabs=(m?.sheets||[]).map(s=>s.properties);
   const reqs=[{updateSpreadsheetProperties:{properties:{timeZone:TZ},fields:'timeZone'}}];
+  sheetRead=0;
   let tabId=tabs.find(t=>t.title===SHEET_TAB)?.sheetId;
-  if(tabId===undefined&&tabs.length===1) tabId=tabs[0].sheetId;   // la pestaña por defecto («Hoja 1») se renombra
+  if(tabId===undefined&&tabs.length===1&&tabs[0].title!==HIDE_TAB) tabId=tabs[0].sheetId;   // la pestaña por defecto («Hoja 1») se renombra
+  if(!tabs.some(t=>t.title===HIDE_TAB)) reqs.push({addSheet:{properties:{title:HIDE_TAB,gridProperties:{frozenRowCount:1}}}});
   if(tabId===undefined){ tabId=Math.floor(Math.random()*1e9); reqs.push({addSheet:{properties:{sheetId:tabId,title:SHEET_TAB}}}); }
   reqs.push(
     {updateSheetProperties:{properties:{sheetId:tabId,title:SHEET_TAB,gridProperties:{frozenRowCount:1}},fields:'title,gridProperties.frozenRowCount'}},
@@ -895,17 +933,20 @@ async function setupSheet(){
       cell:{userEnteredFormat:{textFormat:{bold:true},backgroundColor:{red:.91,green:.93,blue:.97}}},fields:'userEnteredFormat(textFormat,backgroundColor)'}},
     {setBasicFilter:{filter:{range:{sheetId:tabId}}}});
   await gcal('POST',`${SHEETS}/${enc(S.sheetId)}:batchUpdate`,{requests:reqs});
-  await gcal('PUT',`${SHEETS}/${enc(S.sheetId)}/values/${enc(`'${SHEET_TAB}'!A1:${String.fromCharCode(64+LOG_COLS.length)}1`)}?valueInputOption=RAW`,{values:[LOG_COLS]});   // A1:V1
+  await gcal('PUT',`${SHEETS}/${enc(S.sheetId)}/values/${enc(`'${SHEET_TAB}'!A1:${LOG_LAST}1`)}?valueInputOption=RAW`,{values:[LOG_COLS]});   // A1:W1
+  await gcal('PUT',`${SHEETS}/${enc(S.sheetId)}/values/${enc(`'${HIDE_TAB}'!A1:C1`)}?valueInputOption=RAW`,{values:[['ID evento','Ocultado (ISO 8601)','ID dispositivo']]});
 }
 
 // ── Formato de log de auditoría (una fila por evento) ──
 const LOG_COLS=['Timestamp (ISO 8601)','Fecha y hora local','ID evento','Nivel','Acción','Origen','Día afectado','Día de la semana',
   'Semana ISO','Festivo','Estado anterior','Estado nuevo','Aviso','Verificación del aviso','Referencia (código)','Detalle',
-  'ID dispositivo','Dispositivo','Cuenta Google','Versión app','Zona horaria','Subido a la hoja'];
+  'ID dispositivo','Dispositivo','Cuenta Google','Versión app','Zona horaria','Subido a la hoja','Datos (JSON)'];
+const LOG_LAST=String.fromCharCode(64+LOG_COLS.length);   // W
 function isoTs(ts){
   const d=new Date(ts), o=-d.getTimezoneOffset(), a=Math.abs(o);
   return `${toKey(d)}T${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}.${String(d.getMilliseconds()).padStart(3,'0')}${o>=0?'+':'-'}${p2(a/60|0)}:${p2(a%60)}`;
 }
+const fmtClock=ts=>{ const d=new Date(ts); return `${p2(d.getHours())}:${p2(d.getMinutes())}`; };
 const fmtFull=ts=>{ const d=new Date(ts); return `${toKey(d)} ${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`; };
 function isoWeek(k){
   const d=fromKey(k); d.setDate(d.getDate()+3-((d.getDay()+6)%7));
@@ -923,7 +964,8 @@ function logRow(e,upTs){
   const ver=e.src!=='notif'?'—':e.ok==='ok'?'Verificado':e.ok==='bad'?'No coincide':'Sin verificar';
   return [isoTs(e.ts),fmtFull(e.ts),e.id,e.ok==='bad'?'WARN':'INFO',act,srcBadge(e)[1],e.d,DOW_L[fromKey(e.d).getDay()],
     isoWeek(e.d),getHol(fromKey(e.d))||'—',TYPE_UI[e.from],TYPE_UI[e.to],e.slot?slotOf(e.slot)?.label||e.slot:'—',ver,
-    e.ref||'—',srcText(e),e.dev,e.dev===S.dev?devInfo():'—',S.account||'—',APP_VER,Intl.DateTimeFormat().resolvedOptions().timeZone,isoTs(upTs)];
+    e.ref||'—',srcText(e),e.dev,e.dev===S.dev?devInfo():'—',S.account||'—',APP_VER,Intl.DateTimeFormat().resolvedOptions().timeZone,isoTs(upTs),
+    JSON.stringify({id:e.id,ts:e.ts,d:e.d,from:e.from??null,to:e.to??null,src:e.src,dev:e.dev,slot:e.slot,ok:e.ok,ref:e.ref,note:e.note})];
 }
 async function syncSheet(retry=true){
   await ensureSheet();   // aunque no haya nada nuevo: así la hoja queda creada y con títulos desde la primera sincronización
@@ -936,36 +978,98 @@ async function syncSheet(retry=true){
   rows.forEach(e=>{ e.up=true; });
   S.logOut=S.logOut.filter(e=>!rows.includes(e)); save();
 }
+async function pushHidden(){
+  if(!S.hideOut.length) return;
+  const hs=S.hideOut.slice();
+  await gcal('POST',`${SHEETS}/${enc(S.sheetId)}/values/${enc(`'${HIDE_TAB}'!A1`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+    {values:hs.map(h=>[h.id,isoTs(h.ts),S.dev])});
+  S.hideOut=S.hideOut.filter(h=>!hs.includes(h)); save();
+}
+
+// ── Historial compartido: se leen de la hoja los registros de todos los dispositivos ──
+let sheetRead=0;   // filas del Historial ya leídas en esta sesión (después se lee solo lo nuevo)
+const UI_TYPE={'Oficina':'office','Día libre':'vacation'};
+function parseRow(r){
+  try{ if(r[22]) return {...JSON.parse(r[22]),up:true}; }catch(_){}
+  // Filas viejas sin la columna JSON: se reconstruyen desde las columnas legibles
+  const ts=Date.parse(r[0]), id=r[2], d=r[6];
+  if(!id||!/^\d{4}-\d{2}-\d{2}$/.test(d||'')||isNaN(ts)) return null;
+  const o=r[5]||'', src=o==='Calendar'?'calendar':o==='Deshecho'?'undo':o.startsWith('Aviso')?'notif':'manual';
+  const e={id,ts,d,from:UI_TYPE[r[10]]||null,to:UI_TYPE[r[11]]||null,src,dev:r[16]||'?',up:true};
+  if(src==='notif'){
+    e.ok=r[13]==='Verificado'?'ok':r[13]==='No coincide'?'bad':'unknown';
+    e.slot=SLOTS.find(sl=>sl.label===r[12])?.id;
+    if(r[14]&&r[14]!=='—') e.ref=r[14];
+    if(/Hoy no fui/.test(r[15]||'')) e.note='Hoy no fui';
+  }
+  return e;
+}
+async function pullSheet(){
+  await ensureSheet();
+  const r=await gcal('GET',`${SHEETS}/${enc(S.sheetId)}/values:batchGet?ranges=${enc(`'${SHEET_TAB}'!A${sheetRead+2}:${LOG_LAST}`)}&ranges=${enc(`'${HIDE_TAB}'!A2:A`)}`);
+  if(r?.notFound){ S.sheetId=null; sheetReady=false; save(); return; }
+  const rows=r?.valueRanges?.[0]?.values||[], hid=r?.valueRanges?.[1]?.values||[];
+  sheetRead+=rows.length;
+  for(const [id] of hid) if(id) S.hidden[id]=1;
+  const have=new Set(S.log.map(e=>e.id));
+  for(const row of rows){
+    const e=parseRow(row);
+    if(e&&!have.has(e.id)&&!S.hidden[e.id]){ S.log.push(e); have.add(e.id); }
+  }
+  S.log=S.log.filter(e=>!S.hidden[e.id]).sort((a,b)=>a.ts-b.ts);
+  if(S.log.length>1000) S.log.splice(0,S.log.length-1000);
+  save();
+}
+// ¿El cambio que trae Calendar ya está explicado por un registro (por ejemplo, de otro dispositivo)?
+// Entonces no se registra otra vez como «Calendar».
+function explained(ds,to){
+  let last=null;
+  for(const e of S.log) if(e.d===ds&&(!last||e.ts>=last.ts)) last=e;
+  return !!last&&(last.to??null)===to;
+}
 // Borra registros del historial de la app. Los que aún no llegaron a la hoja se guardan aparte
 // para subirlos igual: lo borrado en la app sigue registrado en la hoja.
 function deleteLog(ids){
   const del=new Set(ids);
   for(const e of S.log) if(del.has(e.id)&&!e.up) S.logOut.push(e);
+  for(const id of del){ S.hidden[id]=1; S.hideOut.push({id,ts:Date.now()}); }   // se oculta también en los otros dispositivos
   S.log=S.log.filter(e=>!del.has(e.id));
   save(); render();
-  if(hasToken()) enqueue(()=>syncSheet()).then(render);
+  if(hasToken()) enqueue(async()=>{ await syncSheet(); await pushHidden(); }).then(render);
 }
 
 // Cola: todo lo que va a Calendar se ejecuta en orden, uno por uno
 let chain=Promise.resolve();
+// Cada trabajo en curso (subir un día, sync completo, escribir en la hoja) cuenta en S.busy para el indicador
 function enqueue(fn){
-  chain=chain.then(fn).catch(e=>{
+  S.busy++; render();
+  chain=chain.then(fn).then(()=>{ S.lastSync=Date.now(); },e=>{
     if(e instanceof AuthError) S.lastError=null;
     else { console.error(e); S.lastError=e.message; }
-    render();
-  });
+  }).finally(()=>{ S.busy--; S.step=''; render(); });
   return chain;
 }
+const isBusy=()=>S.syncing>0||S.busy>0;
+const step=t=>{ S.step=t; render(); };
 async function syncAll(){
   if(!hasToken()){ render(); return; }
   S.syncing++; render();
   const {year,month}=S;
   await enqueue(async()=>{
     S.lastError=null;
+    step('Buscando el calendario…');
     await ensureCalendar();
+    step('Leyendo el log…');
+    let sheetErr=null;
+    try{ await pullSheet(); }catch(e){ if(e instanceof AuthError) throw e; sheetErr=e; }
+    step('Sincronizando días…');
     await reconcileMonth(year,month);
+    step('Actualizando avisos…');
     await reconcileReminders();
+    if(sheetErr) throw sheetErr;
+    step('Escribiendo en el log…');
     await syncSheet();
+    await pushHidden();
   });
   S.syncing--; render();
 }
@@ -997,7 +1101,7 @@ async function cleanupLegacy(){
 const timers={};
 function schedulePush(key,delay=UNDO_MS){
   clearTimeout(timers[key]);
-  timers[key]=setTimeout(()=>{ delete timers[key]; if(online()) enqueue(()=>pushDay(key)).then(render); },delay);
+  timers[key]=setTimeout(()=>{ delete timers[key]; if(online()) enqueue(async()=>{ await pushDay(key); await syncSheet(); }).then(render); },delay);
 }
 function flushPushes(){
   for(const k of Object.keys(timers)){ clearTimeout(timers[k]); delete timers[k]; if(online()) enqueue(()=>pushDay(k)); }
@@ -1124,6 +1228,7 @@ function openDaySheet(key){
         <div class="dl-chg">${tico(e.from)}${TYPE_UI[e.from]} <span class="t-null">→</span> ${tico(e.to)}${TYPE_UI[e.to]}</div>
         <div class="dl-meta">${srcText(e)} · disp. ${e.dev}${e.dev===S.dev?' (este)':''} · id ${e.id}</div>
       </div>`;}).join(''):'<p>Sin cambios registrados para este día.</p>'}</div>
+    ${S.sheetId?`<p><a class="card-link" href="${sheetUrl()}" target="_blank" rel="noopener">${IC.sheet}Ver el log completo en Google Sheets</a></p>`:''}
     <div class="sheet-btns"><button class="btn-s press" id="sheet-close">Cerrar</button></div>`);
   document.getElementById('sheet-close').addEventListener('click',closeSheet);
   document.querySelectorAll('#sheet-body .log-del').forEach(el=>el.addEventListener('click',()=>{ deleteLog([el.dataset.del]); openDaySheet(key); }));
@@ -1142,14 +1247,18 @@ function render(){
 
   // Resumen del mes
   const past=s.active.length===0;
-  const ok=s.canMax>=s.remaining;
+  const ok=s.slack>2;
   const n=Math.max(s.target,s.visited,1);
   const tone=s.done?'ok':past||!ok?'warn':'go';
+  const dayList=ks=>`<div class="must-days">${ks.map(k=>`<span>${fmtDay(k)}</span>`).join('')}</div>`;
+  const hab=x=>`${x} día${x===1?'':'s'} hábil${x===1?'':'es'}`;
   const pill=s.done?`${IC.check}Meta cumplida`:past?`Faltaron ${s.remaining}`:`Faltan ${s.remaining}`;
   const msg=s.done?`<div class="predict done">${IC.ok}<div>Meta cumplida${s.visited>s.target?` con <strong>${s.visited-s.target}</strong> de más`:''}. Lo que sumes ahora es extra.</div></div>`
     :past?`<div class="predict past">${IC.clock}<div>${MONTHS[month]} cerró con <strong>${s.visited} de ${s.target}</strong> visitas.</div></div>`
-    :ok?`<div class="predict ok">${IC.ok}<div>Vas bien. Quedan <strong>${s.active.length} semana${s.active.length>1?'s':''}</strong> y aún puedes sumar <strong>${s.canMax}</strong> visitas; necesitas <strong>${s.remaining}</strong>.</div></div>`
-    :`<div class="predict warn">${IC.warn}<div>Ojo: solo quedan <strong>${s.canMax}</strong> visitas posibles y necesitas <strong>${s.remaining}</strong>.</div></div>`;
+    :s.slack<0?`<div class="must-alert">${IC.warn}<div><strong>No alcanzas la meta.</strong> Necesitas ${s.remaining} y solo quedan ${hab(s.open.length)}. Ve todos los que puedas:${dayList(s.open)}</div></div>`
+    :s.slack===0?`<div class="must-alert">${IC.warn}<div><strong>Tienes que ir sí o sí ${s.open.length===1?'el día hábil que queda':`los ${s.open.length} días hábiles que quedan`}</strong> para completar ${s.target}:${dayList(s.open)}</div></div>`
+    :!ok?`<div class="predict warn">${IC.warn}<div>Poco margen: necesitas <strong>${s.remaining}</strong> de los <strong>${hab(s.open.length)}</strong> que quedan. Solo puedes faltar <strong>${s.slack}</strong>.</div></div>`
+    :`<div class="predict ok">${IC.ok}<div>Vas bien. Necesitas <strong>${s.remaining}</strong> en los <strong>${hab(s.open.length)}</strong> que quedan (margen de ${s.slack}). Lo ideal: 2 por semana.</div></div>`;
   document.getElementById('stats').innerHTML=`
     <div class="hero-row">
       <div>
@@ -1162,7 +1271,7 @@ function render(){
     <div class="kpis">
       <div class="kpi"><div class="kpi-v">${s.target}</div><div class="kpi-l">Meta <b>${BASE}−${s.adjN}</b></div></div>
       <div class="kpi"><div class="kpi-v">${s.adjN}</div><div class="kpi-l">Semanas con festivo</div></div>
-      <div class="kpi"><div class="kpi-v">${s.canMax}</div><div class="kpi-l">Visitas posibles</div></div>
+      <div class="kpi"><div class="kpi-v">${s.open.length}</div><div class="kpi-l">Días hábiles libres</div></div>
     </div>
     ${msg}`;
 
@@ -1178,7 +1287,7 @@ function render(){
       ${days.map((date,di)=>{
         const k=toKey(date), inM=inMonth(date,year,month);
         const isTd=k===toKey(now),colH=getHol(date),st=S.data[k];
-        const cls=['day-cell',!inM&&'other',di>=5&&'we',isTd&&'today',colH&&'hol',st&&`s-${st}`].filter(Boolean).join(' ');
+        const cls=['day-cell',!inM&&'other',di>=5&&'we',isTd&&'today',colH&&'hol',st&&`s-${st}`,inM&&s.must.includes(k)&&'must'].filter(Boolean).join(' ');
         const ic=st?IC[st]:colH?FLAG:'';
         const flag=colH&&st?`<span class="flag-c">${FLAG}</span>`:'';
         const pend=inM&&S.pending[k]&&S.cid?'<span class="pend-dot" title="Pendiente por subir"></span>':'';
@@ -1216,7 +1325,7 @@ function render(){
   const prefix=`${year}-${p2(month+1)}`;
   const mLog=S.log.filter(e=>e.d.startsWith(prefix)).slice().reverse();
   const shown=S.showAllLog?mLog:mLog.slice(0,6);
-  document.getElementById('history').innerHTML=`<div class="card-hd"><span class="card-ttl">Historial de cambios</span>${mLog.length?`<span class="card-sub">${mLog.length} este mes · <button class="card-act press" id="btn-log-clear">Borrar todos</button></span>`:''}</div>`+
+  document.getElementById('history').innerHTML=`<div class="card-hd"><span class="card-ttl">Historial de cambios</span><span class="card-sub">${S.sheetId?`<a class="card-link" href="${sheetUrl()}" target="_blank" rel="noopener">${IC.sheet}Ver log</a>`:''}${mLog.length?`${S.sheetId?' · ':''}${mLog.length} este mes · <button class="card-act press" id="btn-log-clear">Borrar todos</button>`:''}</span></div>`+
     (mLog.length?shown.map(e=>{const [c,l]=srcBadge(e);const d=fromKey(e.d);return `
       <div class="log-row press" data-day="${e.d}" role="button" tabindex="0">
         <div class="log-d">${d.getDate()}<small>${DOW[d.getDay()]}</small></div>
@@ -1233,14 +1342,16 @@ function render(){
   const gb=document.getElementById('gcal-bar'), chip=document.getElementById('sync-chip');
   const pc=pendingCount(), lc=Object.keys(S.legacy).length;
   const err=S.lastError?`<span class="gcal-err">${S.lastError}</span>`:'';
+  const busy=isBusy();
+  document.getElementById('topbar').classList.toggle('on',busy);
   if(hasToken()){
     gb.innerHTML=`<div class="gcal-ic">${IC.cal}</div>
-    <div class="gcal-status"><strong>${S.syncing?'<i class="dot sync pulse"></i>':S.lastError?'<i class="dot warn"></i>':pc?'<i class="dot sync"></i>':'<i class="dot ok"></i>'}Google Calendar</strong>
-      ${S.syncing?'Sincronizando…':S.lastError?'No se pudo sincronizar':pc?`${pc} cambio${pc>1?'s':''} por subir`:`Calendario «${CAL_NAME}» al día`}${err}
+    <div class="gcal-status"><strong>${busy?'<i class="dot sync pulse"></i>':S.lastError?'<i class="dot warn"></i>':pc?'<i class="dot sync"></i>':'<i class="dot ok"></i>'}Google Calendar</strong>
+      ${busy?(S.step||'Sincronizando…'):S.lastError?'No se pudo sincronizar':pc?`${pc} cambio${pc>1?'s':''} por subir`:`Al día${S.lastSync?` · ${fmtClock(S.lastSync)}`:''}`}${err}
       ${lc?`<button class="gcal-link" id="btn-legacy">Borrar ${lc} evento${lc>1?'s':''} viejo${lc>1?'s':''} del calendario principal</button><br>`:''}
-      ${S.sheetId?`<a class="gcal-link" href="https://docs.google.com/spreadsheets/d/${S.sheetId}" target="_blank" rel="noopener">Ver historial en Google Sheets</a> · `:''}<button class="gcal-link" id="btn-disconnect">Desconectar</button></div>
-    <button class="gcal-btn press ${S.syncing?'syncing':''}" id="btn-sync" aria-label="Sincronizar">${IC.sync}${S.syncing?'':'Sync'}</button>`;
-    chip.innerHTML=`<span class="chip">${S.syncing?'<i class="dot sync pulse"></i>Sincronizando':S.lastError?'<i class="dot warn"></i>Error':pc?`<i class="dot sync"></i>${pc} por subir`:'<i class="dot ok"></i>Al día'}</span>`;
+      ${S.sheetId?`<a class="gcal-link" href="${sheetUrl()}" target="_blank" rel="noopener">Ver log en Google Sheets</a> · `:''}<button class="gcal-link" id="btn-disconnect">Desconectar</button></div>
+    <button class="gcal-btn press ${busy?'syncing':''}" id="btn-sync" aria-label="Sincronizar" ${busy?'disabled':''}>${IC.sync}${busy?'':'Sync'}</button>`;
+    chip.innerHTML=`<span class="chip">${busy?`<span class="spin">${IC.sync}</span>Sincronizando`:S.lastError?'<i class="dot warn"></i>Error':pc?`<i class="dot sync"></i>${pc} por subir`:'<i class="dot ok"></i>Al día'}</span>`;
   } else if(S.cid){
     gb.innerHTML=`<div class="gcal-ic">${IC.cal}</div>
     <div class="gcal-status"><strong><i class="dot warn"></i>Sesión vencida</strong>
@@ -1375,13 +1486,14 @@ document.addEventListener('visibilitychange',()=>{
 });
 setInterval(refreshToday,60*1000);
 // Con la app abierta también se traen cada minuto los cambios hechos en otro dispositivo o en Google Calendar
-setInterval(()=>{ if(!document.hidden&&hasToken()&&!S.syncing) syncAll(); },60*1000);
+setInterval(()=>{ if(!document.hidden&&hasToken()&&!isBusy()) syncAll(); },60*1000);
 
 // ═══════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════
 if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
 load();
+document.getElementById('app-ver').textContent=APP_VER; document.getElementById('app-ver2').textContent=APP_VER;
 const _link=readDeepLink();
 render();
 whenGIS().then(()=>{ if(S.cid) initGIS(); });
