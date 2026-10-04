@@ -375,7 +375,7 @@ const APP_ID='scotiatech-office-tracker', CAL_NAME='Office Tracker', TZ='America
 // drive.file: solo archivos que crea esta app (la hoja «Office Tracker · Historial»), no el resto de tu Drive.
 const SCOPES=['https://www.googleapis.com/auth/calendar.app.created','https://www.googleapis.com/auth/calendar.calendarlist.readonly',
   'https://www.googleapis.com/auth/drive.file'];
-const APP_VER='v9';   // igual que VERSION en sw.js: súbelos juntos al publicar
+const APP_VER='v10';   // igual que VERSION en sw.js: súbelos juntos al publicar
 const SHEET_NAME='Office Tracker · Historial', SHEET_TAB='Historial', FOLDER_NAME='office-tracker';   // Mi unidad/office-tracker/
 const SCOPE=SCOPES.join(' ');
 const LEGACY_SCOPE='https://www.googleapis.com/auth/calendar.events';   // solo para limpiar eventos de la v2
@@ -895,7 +895,7 @@ async function setupSheet(){
       cell:{userEnteredFormat:{textFormat:{bold:true},backgroundColor:{red:.91,green:.93,blue:.97}}},fields:'userEnteredFormat(textFormat,backgroundColor)'}},
     {setBasicFilter:{filter:{range:{sheetId:tabId}}}});
   await gcal('POST',`${SHEETS}/${enc(S.sheetId)}:batchUpdate`,{requests:reqs});
-  await gcal('PUT',`${SHEETS}/${enc(S.sheetId)}/values/${enc(`'${SHEET_TAB}'!A1`)}?valueInputOption=RAW`,{values:[LOG_COLS]});
+  await gcal('PUT',`${SHEETS}/${enc(S.sheetId)}/values/${enc(`'${SHEET_TAB}'!A1:${String.fromCharCode(64+LOG_COLS.length)}1`)}?valueInputOption=RAW`,{values:[LOG_COLS]});   // A1:V1
 }
 
 // ── Formato de log de auditoría (una fila por evento) ──
@@ -926,9 +926,9 @@ function logRow(e,upTs){
     e.ref||'—',srcText(e),e.dev,e.dev===S.dev?devInfo():'—',S.account||'—',APP_VER,Intl.DateTimeFormat().resolvedOptions().timeZone,isoTs(upTs)];
 }
 async function syncSheet(retry=true){
+  await ensureSheet();   // aunque no haya nada nuevo: así la hoja queda creada y con títulos desde la primera sincronización
   const rows=[...S.logOut,...S.log.filter(e=>!e.up)].sort((a,b)=>a.ts-b.ts);
   if(!rows.length) return;
-  await ensureSheet();
   const now=Date.now();
   const r=await gcal('POST',`${SHEETS}/${enc(S.sheetId)}/values/${enc(`'${SHEET_TAB}'!A1`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
     {values:rows.map(e=>logRow(e,now))});

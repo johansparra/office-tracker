@@ -1,5 +1,5 @@
 // Sube este número cada vez que publiques cambios en GitHub Pages
-const VERSION = 'v9';
+const VERSION = 'v10';
 const CACHE = `office-tracker-${VERSION}`;
 const ASSETS = ['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png'];
 
@@ -23,7 +23,8 @@ self.addEventListener('fetch', e => {
   // La app (HTML): red primero, así siempre ves la última versión publicada; caché solo sin conexión
   if (req.mode === 'navigate' || url.pathname.endsWith('/') || url.pathname.endsWith('.html')) {
     e.respondWith(
-      fetch(req).then(resp => {
+      // no-cache: GitHub Pages manda max-age=600; sin esto el navegador puede servir el HTML viejo hasta 10 minutos
+      fetch(req, { cache: 'no-cache' }).then(resp => {
         const clone = resp.clone();
         caches.open(CACHE).then(c => c.put(req, clone));
         return resp;
