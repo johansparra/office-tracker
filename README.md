@@ -98,7 +98,9 @@ Menú ☰ → **APIs y servicios → Pantalla de consentimiento de OAuth**. En l
 - **Si borras el calendario en Google**, la app crea uno nuevo y vuelve a subir los días que tiene guardados en el dispositivo.
 - **Al unirse a un calendario que ya existe** (un segundo dispositivo, por ejemplo), gana lo que ya está en Google; solo se suben los días que Google no tiene.
 - **Sincronización en ambos sentidos:** puedes crear, mover, renombrar o borrar días desde Google Calendar. Un evento de día completo con 🏢 u "oficina" en el título cuenta como oficina; con 🏖️, "libre" o "vacaciones" cuenta como día libre.
-- **¿Cuándo sincroniza?** Al abrir la app, al volver a ella y **cada minuto** mientras está abierta. Así lo que marcas en el celular aparece en el PC en máximo un minuto, y al revés.
+- **¿Cuándo sincroniza? Casi en tiempo real mientras la app está abierta.** Cada **10 segundos** hace dos consultas livianas a Google: si cambió algún evento del calendario Office Tracker (en otro dispositivo o directamente en Google Calendar) o si cambió la hoja del log. Solo si detecta un cambio hace la sincronización completa, así que lo que marcas en el celular aparece en el PC en **~10 segundos**, y al revés.
+- Además sincroniza al abrir la app, al volver a ella o a su ventana, al recuperar internet y, como respaldo, cada 5 minutos.
+- Con la app cerrada no detecta nada: se pone al día apenas la abres. Para avisos con la app cerrada siguen los de Google Calendar. Detectar cambios con la app cerrada requiere un servidor.
 - Si cambias algo en un dispositivo y aún no se ha subido (punto azul), gana ese cambio. Si no, gana Google Calendar.
 - La sesión de Google dura **~1 hora** (límite de Google para apps sin servidor). Cuando vence, la tarjeta dice **Sesión vencida** → toca **Reconectar**. Lo marcado mientras tanto queda guardado y se sube al reconectar.
 
@@ -181,7 +183,7 @@ La app programa en el calendario Office Tracker dos avisos de lunes a viernes (*
 
 ## 🔄 Publicar actualizaciones
 
-Cada vez que subas cambios a GitHub Pages, abre `sw.js` y sube la versión (`const VERSION = 'v11'` → `'v12'`…), y pon el mismo valor en `APP_VER` dentro de `index.html` (sale en la columna *Versión app* del log). La app carga el HTML desde la red primero, así que basta con cerrarla y abrirla para ver la versión nueva.
+Cada vez que subas cambios a GitHub Pages, abre `sw.js` y sube la versión (`const VERSION = 'v12'` → `'v13'`…), y pon el mismo valor en `APP_VER` dentro de `index.html` (sale en la columna *Versión app* del log). La app carga el HTML desde la red primero, así que basta con cerrarla y abrirla para ver la versión nueva.
 
 ---
 

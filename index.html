@@ -392,7 +392,7 @@ const APP_ID='scotiatech-office-tracker', CAL_NAME='Office Tracker', TZ='America
 // drive.file: solo archivos que crea esta app (la hoja «Office Tracker · Historial»), no el resto de tu Drive.
 const SCOPES=['https://www.googleapis.com/auth/calendar.app.created','https://www.googleapis.com/auth/calendar.calendarlist.readonly',
   'https://www.googleapis.com/auth/drive.file'];
-const APP_VER='v11';   // igual que VERSION en sw.js: súbelos juntos al publicar
+const APP_VER='v12';   // igual que VERSION en sw.js: súbelos juntos al publicar
 const HIDE_TAB='Ocultos';   // ids de registros borrados en la app (para que se oculten en todos los dispositivos)
 const SHEET_NAME='Office Tracker · Historial', SHEET_TAB='Historial', FOLDER_NAME='office-tracker';   // Mi unidad/office-tracker/
 const SCOPE=SCOPES.join(' ');
@@ -1482,11 +1482,41 @@ function refreshToday(){ const t=today(); if(t.getTime()!==now.getTime()){ now=t
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden){ flushPushes(); return; }
   refreshToday(); render();
-  if(hasToken()) syncAll();
+  if(hasToken()&&!isBusy()) syncAll();
 });
 setInterval(refreshToday,60*1000);
-// Con la app abierta también se traen cada minuto los cambios hechos en otro dispositivo o en Google Calendar
-setInterval(()=>{ if(!document.hidden&&hasToken()&&!isBusy()) syncAll(); },60*1000);
+// ── Detección de cambios casi en tiempo real (app abierta) ──
+// Cada 10 s se pregunta, con dos llamadas livianas, si algo cambió en otro lado:
+//  - Calendar: eventos con `updated` posterior al último visto (incluye borrados).
+//  - Drive: fecha de modificación de la hoja del log.
+// Solo si hay cambios se hace la sincronización completa. Los cambios propios disparan
+// a lo sumo una sincronización extra, porque el cursor avanza a lo último visto.
+const WATCH_MS=10*1000, FULL_MS=5*60*1000;
+let calCursor=null, sheetMod=null, checking=false;
+async function checkChanges(){
+  if(checking||document.hidden||!online()||isBusy()) return;
+  checking=true;
+  try{
+    let changed=false;
+    if(!calCursor) calCursor=new Date(Date.now()-60*1000).toISOString();
+    const r=await gcal('GET',`${calPath()}/events?updatedMin=${enc(calCursor)}&showDeleted=true&maxResults=50&fields=${enc('items(updated)')}`);
+    const newer=(r?.items||[]).map(e=>e.updated).filter(u=>u>calCursor);
+    if(newer.length){ changed=true; calCursor=newer.sort().pop(); }
+    if(S.sheetId){
+      const f=await gcal('GET',`${DRIVE}/${enc(S.sheetId)}?fields=modifiedTime`);
+      if(f?.modifiedTime&&f.modifiedTime!==sheetMod){ if(sheetMod) changed=true; sheetMod=f.modifiedTime; }
+    }
+    if(changed&&!isBusy()) syncAll();
+  }catch(e){
+    if(e instanceof AuthError) render(); else console.warn('[watch]',e);
+  }finally{ checking=false; }
+}
+setInterval(checkChanges,WATCH_MS);
+// Respaldo: sincronización completa cada 5 minutos aunque no se detecte nada
+setInterval(()=>{ if(!document.hidden&&hasToken()&&!isBusy()&&Date.now()-S.lastSync>FULL_MS) syncAll(); },60*1000);
+// Al volver la conexión o al volver a la ventana (en PC cambiar de ventana no oculta la pestaña)
+addEventListener('online',()=>{ if(hasToken()) syncAll(); });
+addEventListener('focus',()=>{ if(hasToken()&&!isBusy()&&Date.now()-S.lastSync>WATCH_MS) syncAll(); });
 
 // ═══════════════════════════════════════════════════════════
 // INIT
