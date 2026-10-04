@@ -297,6 +297,8 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
   </header>
 
   <main class="stack">
+    <section class="card gcal" id="gcal-bar"></section>
+
     <section class="card hero" id="hero">
       <div class="month">
         <button class="nav-btn press" id="btn-prev" aria-label="Mes anterior"><svg class="ic" viewBox="0 0 16 16"><path d="M10 3.5 5.5 8l4.5 4.5"/></svg></button>
@@ -321,7 +323,6 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
     <section class="card" id="festivos" hidden></section>
     <section class="card" id="breakdown"></section>
     <section class="card" id="history"></section>
-    <section class="card gcal" id="gcal-bar"></section>
 
     <footer class="footer">Meta = 8 − semanas con festivo o día libre · Solo cuentan los días del mes visible · Los datos se guardan en este dispositivo</footer>
   </main>
@@ -363,7 +364,10 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 const BASE=8, UNDO_MS=5000, HORIZON=21;            // HORIZON: días hacia adelante con avisos programados
 const LS_DATA='ot-data-v2', LS_CID='ot-gcal-cid', LS_TOK='ot-gcal-token', LS_CAL='ot-cal-id', LS_DEV='ot-dev';
 const APP_ID='scotiatech-office-tracker', CAL_NAME='Office Tracker', TZ='America/Bogota';
-const SCOPE='https://www.googleapis.com/auth/calendar.app.created';     // solo calendarios que crea esta app
+// app.created: solo calendarios que crea esta app. calendarlist.readonly: ver la lista de calendarios
+// (solo nombres) para encontrar el «Office Tracker» que otro dispositivo ya creó y no duplicarlo.
+const SCOPES=['https://www.googleapis.com/auth/calendar.app.created','https://www.googleapis.com/auth/calendar.calendarlist.readonly'];
+const SCOPE=SCOPES.join(' ');
 const LEGACY_SCOPE='https://www.googleapis.com/auth/calendar.events';   // solo para limpiar eventos de la v2
 const SLOTS=[
   {id:'r10',h:10,m:0, label:'10:00 a. m.',title:'¿Vas a la oficina hoy?'},
@@ -588,6 +592,24 @@ async function connect(){
   initGIS();
   tokenClient.requestAccessToken({prompt:''});
 }
+// Olvida la conexión actual (Client ID, sesión y calendario). Lo marcado sigue en este dispositivo
+// y se vuelve a subir completo al conectar de nuevo.
+function resetConnection(){
+  clearToken(); tokenClient=null; tokenClientCid=null; legacyClient=null;
+  S.cid=null; S.calId=null; S.calChecked=false; S.evIds={}; S.rem={}; S.lastError=null;
+  Object.keys(S.data).forEach(k=>{ S.pending[k]=true; });
+  try{ localStorage.removeItem(LS_CID); localStorage.removeItem(LS_CAL); }catch(_){}
+  save();
+}
+async function disconnect(){
+  if(!confirm('¿Desconectar Google Calendar?\n\nSe olvida el Client ID y la sesión en este dispositivo. Tus días marcados se quedan aquí.')) return;
+  if(hasToken()&&S.calId&&confirm(`¿También borrar el calendario «${CAL_NAME}» de Google?\n\nSe borran sus avisos y días marcados en Google. Si otro dispositivo lo usa, volverá a crearlo al sincronizar.`)){
+    try{ await gcal('DELETE',calPath()); }catch(_){}
+  }
+  const tok=S.token;
+  if(tok&&gisReady()) try{ google.accounts.oauth2.revoke(tok,()=>{}); }catch(_){}
+  resetConnection(); render();
+}
 
 // ═══════════════════════════════════════════════════════════
 // GOOGLE CALENDAR API
@@ -604,7 +626,7 @@ async function gcal(method,path,body){
   if(r.status===401){ clearToken(); throw new AuthError('token vencido'); }
   if(r.status===404||r.status===410) return {notFound:true};
   if(r.status===204) return {};
-  if(!r.ok) throw new Error(`Google Calendar respondió ${r.status}`);
+  if(!r.ok) throw Object.assign(new Error(`Google Calendar respondió ${r.status}`),{status:r.status});
   return r.json();
 }
 const calPath=()=>`/calendars/${enc(S.calId)}`;
@@ -620,27 +642,51 @@ async function listEvents(params){
 }
 async function delEvent(id){ await gcal('DELETE',`${calPath()}/events/${enc(id)}`); }
 
-// Calendario propio "Office Tracker": se crea una vez y se reutiliza
+// Calendario propio "Office Tracker": UNO solo por cuenta de Google, sin importar
+// cuántos dispositivos se conecten. En cada sync se busca por nombre; si hay varios
+// (dos dispositivos que se conectaron a la vez), todos eligen el mismo (id menor),
+// copian a él los días de los demás y borran los sobrantes.
 async function ensureCalendar(){
-  if(S.calId&&S.calChecked) return;
-  if(S.calId){
-    const r=await gcal('GET',calPath());
-    if(!r?.notFound){ S.calChecked=true; return; }
-    S.calId=null; S.evIds={}; S.rem={};
-    Object.keys(S.data).forEach(k=>{ S.pending[k]=true; });   // lo que hay local se vuelve a subir
-  }
+  let found;
   try{
     const r=await gcal('GET','/users/me/calendarList?minAccessRole=owner&maxResults=250');
-    const c=(r?.items||[]).find(c=>c.summary===CAL_NAME);
-    if(c) S.calId=c.id;
-  }catch(e){ if(e instanceof AuthError) throw e; }
-  if(!S.calId){
+    found=(r?.items||[]).filter(c=>c.summary===CAL_NAME&&!c.deleted).map(c=>c.id).sort();
+  }catch(e){
+    if(e instanceof AuthError) throw e;
+    if(e.status===403) throw new Error('Falta el permiso para ver tus calendarios: desconecta y vuelve a conectar aceptando todos los permisos');
+    if(S.calId&&S.calChecked) return;   // sin red u otro fallo: se sigue con el calendario conocido
+    throw e;                            // nunca se crea uno nuevo sin haber podido buscar
+  }
+  let id=found[0]||null;
+  if(!id){
     const r=await gcal('POST','/calendars',{summary:CAL_NAME,timeZone:TZ,
       description:'Visitas a oficina y recordatorios diarios de Office Tracker (ScotiaTech).'});
-    S.calId=r.id;
+    id=r.id;
+  }
+  for(const dup of found.slice(1)) await mergeCalendar(dup,id);
+  if(S.calId!==id){
+    // Otro calendario (o ninguno) → los ids guardados no sirven; lo local se vuelve a subir
+    // y reconcileMonth/reconcileReminders quitan lo que quede repetido.
+    if(S.calId) S.evIds={}, S.rem={};
+    Object.keys(S.data).forEach(k=>{ S.pending[k]=true; });
+    S.calId=id;
   }
   S.calChecked=true;
   localStorage.setItem(LS_CAL,S.calId); save();
+}
+// Copia los días (no los avisos) de un calendario duplicado al principal y borra el duplicado.
+async function mergeCalendar(from,to){
+  let pageToken='';
+  do{
+    const r=await gcal('GET',`/calendars/${enc(from)}/events?maxResults=250${pageToken?`&pageToken=${enc(pageToken)}`:''}`);
+    for(const ev of r?.items||[]){
+      if(ev.status==='cancelled'||ev.extendedProperties?.private?.kind==='reminder') continue;
+      const {summary,description,start,end,recurrence,transparency,extendedProperties}=ev;
+      await gcal('POST',`/calendars/${enc(to)}/events`,{summary,description,start,end,recurrence,transparency,extendedProperties});
+    }
+    pageToken=r?.nextPageToken||'';
+  }while(pageToken);
+  await gcal('DELETE',`/calendars/${enc(from)}`);
 }
 
 // ── Eventos de día (la "base de datos") ──────────────────────
@@ -1057,14 +1103,15 @@ function render(){
     gb.innerHTML=`<div class="gcal-ic">${IC.cal}</div>
     <div class="gcal-status"><strong>${S.syncing?'<i class="dot sync pulse"></i>':pc?'<i class="dot sync"></i>':'<i class="dot ok"></i>'}Google Calendar</strong>
       ${S.syncing?'Sincronizando…':pc?`${pc} cambio${pc>1?'s':''} por subir`:`Calendario «${CAL_NAME}» al día`}${err}
-      ${lc?`<button class="gcal-link" id="btn-legacy">Borrar ${lc} evento${lc>1?'s':''} viejo${lc>1?'s':''} del calendario principal</button>`:''}</div>
+      ${lc?`<button class="gcal-link" id="btn-legacy">Borrar ${lc} evento${lc>1?'s':''} viejo${lc>1?'s':''} del calendario principal</button><br>`:''}
+      <button class="gcal-link" id="btn-disconnect">Desconectar</button></div>
     <button class="gcal-btn press ${S.syncing?'syncing':''}" id="btn-sync" aria-label="Sincronizar">${IC.sync}${S.syncing?'':'Sync'}</button>`;
     chip.innerHTML=`<span class="chip">${S.syncing?'<i class="dot sync pulse"></i>Sincronizando':pc?`<i class="dot sync"></i>${pc} por subir`:'<i class="dot ok"></i>Al día'}</span>`;
   } else if(S.cid){
     gb.innerHTML=`<div class="gcal-ic">${IC.cal}</div>
     <div class="gcal-status"><strong><i class="dot warn"></i>Sesión vencida</strong>
       ${pc?`${pc} cambio${pc>1?'s':''} esperando para subir`:'Reconecta para seguir sincronizando'}${err}
-      <br><button class="gcal-link" id="btn-cid">Cambiar Client ID</button></div>
+      <br><button class="gcal-link" id="btn-cid">Cambiar Client ID</button> · <button class="gcal-link" id="btn-disconnect">Desconectar</button></div>
     <button class="gcal-btn primary press" id="btn-reconnect">Reconectar</button>`;
     chip.innerHTML=`<span class="chip"><i class="dot warn"></i>${pc?`${pc} sin subir`:'Sin sesión'}</span>`;
   } else {
@@ -1090,6 +1137,7 @@ function render(){
   document.getElementById('btn-reconnect')?.addEventListener('click',connect);
   document.getElementById('btn-sync')?.addEventListener('click',syncAll);
   document.getElementById('btn-legacy')?.addEventListener('click',cleanupLegacy);
+  document.getElementById('btn-disconnect')?.addEventListener('click',disconnect);
   afterRender(s);
 }
 
@@ -1174,7 +1222,7 @@ document.getElementById('toast-undo').addEventListener('click',doUndo);
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeSheet(); hideModal(); } });
 document.getElementById('modal-save').addEventListener('click',()=>{
   const cid=document.getElementById('cid-input').value.trim(); if(!cid) return;
-  if(cid!==S.cid){ clearToken(); tokenClient=null; legacyClient=null; }
+  if(cid!==S.cid) resetConnection();   // otro proyecto de Google = otro calendario; se sube todo de nuevo
   S.cid=cid; localStorage.setItem(LS_CID,cid); hideModal();
   connect();
 });

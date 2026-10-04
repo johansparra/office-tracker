@@ -49,6 +49,8 @@ Tracker de visitas a oficina con festivos colombianos automáticos y sincronizac
      `https://TU-USUARIO.github.io`
 7. Clic en **Crear** → Copia el **Client ID**
 
+> En **Pantalla de consentimiento de OAuth → Acceso a datos** agrega los permisos `.../auth/calendar.app.created` y `.../auth/calendar.calendarlist.readonly`.
+
 > Si tu proyecto de Google Cloud está en modo **Prueba**, agrégate como usuario de prueba en **Pantalla de consentimiento de OAuth**.
 
 ### Conectar en la app
@@ -62,7 +64,7 @@ Tracker de visitas a oficina con festivos colombianos automáticos y sincronizac
 
 ### Calendario propio "Office Tracker"
 
-Al conectar, la app crea en tu Google Calendar un calendario secundario llamado **Office Tracker**. Ahí guarda los días marcados y los avisos diarios; tu calendario principal no se toca. El permiso que pide (`calendar.app.created`) solo da acceso a calendarios creados por esta app, no a tus otros eventos.
+Al conectar, la app crea en tu Google Calendar un calendario secundario llamado **Office Tracker**. Ahí guarda los días marcados y los avisos diarios; tu calendario principal no se toca. Pide dos permisos: `calendar.app.created` (solo da acceso a calendarios creados por esta app, no a tus otros eventos) y `calendar.calendarlist.readonly` (ver los nombres de tus calendarios, para que todos tus dispositivos usen el mismo «Office Tracker» en vez de crear uno cada uno). Si encuentra más de uno, los une en uno solo.
 
 - Lo ves en Google Calendar con su propio color; puedes ocultarlo sin afectar la app.
 - **Sincronización en ambos sentidos:** puedes crear, mover, renombrar o borrar días desde la app de Calendar. Un evento de día completo con 🏢 u "oficina" en el título cuenta como oficina; con 🏖️, "libre" o "vacaciones" cuenta como día libre. Se refleja al abrir o volver al tracker.
