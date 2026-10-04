@@ -631,7 +631,18 @@ async function gcal(method,path,body){
   if(r.status===401){ clearToken(); throw new AuthError('token vencido'); }
   if(r.status===404||r.status===410) return {notFound:true};
   if(r.status===204) return {};
-  if(!r.ok) throw Object.assign(new Error(`Google Calendar respondió ${r.status}`),{status:r.status});
+  if(!r.ok){
+    // Se muestra el motivo real que da Google, no solo el código
+    let j=null; try{ j=await r.json(); }catch(_){}
+    const reason=j?.error?.errors?.[0]?.reason||j?.error?.details?.find(d=>d.reason)?.reason||'', gm=j?.error?.message||'';
+    const msg=reason==='accessNotConfigured'||reason==='SERVICE_DISABLED'||/has not been used|is disabled/i.test(gm)
+        ?'La Google Calendar API no está activada en tu proyecto de Google Cloud (APIs y servicios → Biblioteca → Google Calendar API → Habilitar)'
+      :reason==='insufficientPermissions'||reason==='ACCESS_TOKEN_SCOPE_INSUFFICIENT'||/insufficient.*scope/i.test(gm)
+        ?'Faltan permisos: toca Reconectar y marca todas las casillas de Google Calendar'
+      :`Google Calendar respondió ${r.status}${gm?`: ${gm}`:''}`;
+    console.error('[gcal]',method,path,r.status,j);
+    throw Object.assign(new Error(msg),{status:r.status,reason});
+  }
   return r.json();
 }
 const calPath=()=>`/calendars/${enc(S.calId)}`;
@@ -658,10 +669,9 @@ async function ensureCalendar(){
     found=(r?.items||[]).filter(c=>c.summary===CAL_NAME&&!c.deleted).map(c=>c.id).sort();
   }catch(e){
     if(e instanceof AuthError) throw e;
-    if(e.status===403) throw new Error('Falta el permiso para ver tus calendarios: desconecta y vuelve a conectar aceptando todos los permisos');
-    if(S.calId&&S.calChecked) return;   // sin red u otro fallo: se sigue con el calendario conocido
-    throw e;                            // nunca se crea uno nuevo sin haber podido buscar
-  }
+    if(e.status||!S.calId||!S.calChecked) throw e;   // error de Google: se muestra tal cual
+    return;                             // sin red: se sigue con el calendario conocido
+  }                                     // nunca se crea uno nuevo sin haber podido buscar
   let id=found[0]||null, created=false;
   if(!id){
     const r=await gcal('POST','/calendars',{summary:CAL_NAME,timeZone:TZ,
@@ -1113,12 +1123,12 @@ function render(){
   const err=S.lastError?`<span class="gcal-err">${S.lastError}</span>`:'';
   if(hasToken()){
     gb.innerHTML=`<div class="gcal-ic">${IC.cal}</div>
-    <div class="gcal-status"><strong>${S.syncing?'<i class="dot sync pulse"></i>':pc?'<i class="dot sync"></i>':'<i class="dot ok"></i>'}Google Calendar</strong>
-      ${S.syncing?'Sincronizando…':pc?`${pc} cambio${pc>1?'s':''} por subir`:`Calendario «${CAL_NAME}» al día`}${err}
+    <div class="gcal-status"><strong>${S.syncing?'<i class="dot sync pulse"></i>':S.lastError?'<i class="dot warn"></i>':pc?'<i class="dot sync"></i>':'<i class="dot ok"></i>'}Google Calendar</strong>
+      ${S.syncing?'Sincronizando…':S.lastError?'No se pudo sincronizar':pc?`${pc} cambio${pc>1?'s':''} por subir`:`Calendario «${CAL_NAME}» al día`}${err}
       ${lc?`<button class="gcal-link" id="btn-legacy">Borrar ${lc} evento${lc>1?'s':''} viejo${lc>1?'s':''} del calendario principal</button><br>`:''}
       <button class="gcal-link" id="btn-disconnect">Desconectar</button></div>
     <button class="gcal-btn press ${S.syncing?'syncing':''}" id="btn-sync" aria-label="Sincronizar">${IC.sync}${S.syncing?'':'Sync'}</button>`;
-    chip.innerHTML=`<span class="chip">${S.syncing?'<i class="dot sync pulse"></i>Sincronizando':pc?`<i class="dot sync"></i>${pc} por subir`:'<i class="dot ok"></i>Al día'}</span>`;
+    chip.innerHTML=`<span class="chip">${S.syncing?'<i class="dot sync pulse"></i>Sincronizando':S.lastError?'<i class="dot warn"></i>Error':pc?`<i class="dot sync"></i>${pc} por subir`:'<i class="dot ok"></i>Al día'}</span>`;
   } else if(S.cid){
     gb.innerHTML=`<div class="gcal-ic">${IC.cal}</div>
     <div class="gcal-status"><strong><i class="dot warn"></i>Sesión vencida</strong>

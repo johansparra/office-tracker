@@ -1,5 +1,5 @@
 // Sube este número cada vez que publiques cambios en GitHub Pages
-const VERSION = 'v6';
+const VERSION = 'v7';
 const CACHE = `office-tracker-${VERSION}`;
 const ASSETS = ['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png'];
 
