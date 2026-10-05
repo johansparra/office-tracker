@@ -6,6 +6,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cargarApp } from './entorno/cargar.mjs';
 import { prng } from './entorno/reloj.mjs';
+import { APP_VER } from './entorno/correr.mjs';
 
 const F=await import('../js/nucleo/fechas.js');
 const { holidays }=await import('../js/nucleo/festivos.js');
@@ -123,7 +124,7 @@ test('filas de la hoja (escribir y leer): idénticas para 400 registros y filas 
       from:tipoAzar(),to:tipoAzar(),src,dev:r()<0.5?'cafe':'beef',
       ...(src==='notif'?{slot:['r10','r16'][Math.floor(r()*2)],ok:['ok','bad','unknown'][Math.floor(r()*3)],ref:r()<0.5?'abcd1234':'',note:r()<0.3?'Hoy no fui':undefined}:{})};
     const fila=sh.logRow(e,1.8e12);
-    igual(fila.map(x=>x==='v16'?'v15':x),lr(e,1.8e12),JSON.stringify(e));   // la versión de la app cambia a propósito
+    igual(fila.map(x=>x===APP_VER?'v15':x),lr(e,1.8e12),JSON.stringify(e));   // la versión de la app cambia a propósito
     igual(sh.parseRow(fila),pr(fila));
     const vieja=fila.slice(0,22);   // fila sin la columna JSON
     igual(sh.parseRow(vieja),pr(vieja));

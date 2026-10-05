@@ -250,7 +250,7 @@ flowchart TD
 | [js/](js/) | La lógica de la app: 34 módulos organizados por capas (ver [sección 4](#4-estructura-del-código-y-cómo-modificarlo)). | Para encontrar y cambiar cada cosa sin leer todo, y probar las reglas por separado. |
 | [sw.js](sw.js) | *Service worker*: guarda la app en caché para que abra sin internet y siempre trae la última versión publicada cuando hay red. | Requisito para que Chrome trate la web como app instalable y funcione offline. |
 | [manifest.json](manifest.json) | *Manifiesto PWA*: nombre, ícono, colores y modo pantalla completa (`standalone`). | Chrome lo exige para ofrecer **Instalar / Agregar a pantalla de inicio**. |
-| `icon-192.png`, `icon-512.png` | Íconos de la app. | Los usa el manifiesto (pantalla de inicio, splash). |
+| [img/](img/) | Íconos de la app (`icon-192.png`, `icon-512.png`). | Los usa el manifiesto (pantalla de inicio, splash) y el encabezado. |
 
 ### Pruebas
 
@@ -409,7 +409,7 @@ npm test
 | [reglas.test.mjs](tests/reglas.test.mjs) | Cada regla de negocio RN-01 a RN-30, con valores esperados escritos a mano (por ejemplo, los festivos oficiales de 2026 o el ejemplo del 26 de octubre). | 36 pruebas |
 | [paridad.test.mjs](tests/paridad.test.mjs) | Cada función del núcleo da el mismo resultado que la original de la v15 en miles de entradas: festivos 1900–2200, la meta de cada mes 2024–2028 con datos aleatorios, cada fecha 2020–2030, títulos de eventos, filas de la hoja. | 9 pruebas |
 | [robustez.test.mjs](tests/robustez.test.mjs) | El control de errores: datos guardados dañados, entradas inválidas, Firestore con datos raros o que rechaza escrituras, Google sin red, almacenamiento lleno, una tarjeta que falla. | 10 pruebas |
-| [estructura.test.mjs](tests/estructura.test.mjs) | Las reglas de arquitectura de la sección 4.1, la lista de `sw.js`, la versión y que no haya `catch` vacíos. | 9 pruebas |
+| [estructura.test.mjs](tests/estructura.test.mjs) | Las reglas de arquitectura de la sección 4.1, la lista de `sw.js`, que existan los archivos que piden `sw.js`, el manifiesto e `index.html`, la versión y que no haya `catch` vacíos. | 10 pruebas |
 
 **Cómo funciona el entorno de pruebas** ([tests/entorno/](tests/entorno/)): la app corre en un navegador simulado (jsdom) con un reloj falso que solo avanza cuando la prueba lo pide, y con Google Calendar, Drive, Sheets, Google Identity Services y Firebase falsos que guardan sus datos en memoria y registran cada llamada. Así cada escenario es determinista y se puede repetir idéntico.
 
@@ -526,8 +526,7 @@ Para quitarle a la app el acceso a tu cuenta en cualquier momento: [myaccount.go
    - `js/` (con todas sus subcarpetas)
    - `manifest.json`
    - `sw.js`
-   - `icon-192.png`
-   - `icon-512.png`
+   - `img/` (con los dos íconos)
 4. Ve a **Settings → Pages**
 5. En "Source" selecciona **"Deploy from branch"** → branch `main` → folder `/` (root)
 6. Espera ~2 minutos. Tu URL será:  
@@ -706,7 +705,7 @@ La app programa en el calendario Office Tracker dos avisos de lunes a viernes (*
 
 ### 🔄 Publicar actualizaciones
 
-Cada vez que subas cambios a GitHub Pages, abre `sw.js` y sube la versión (`const VERSION = 'v16'` → `'v17'`…), y pon el mismo valor en `APP_VER` dentro de `js/nucleo/constantes.js` (sale en la columna *Versión app* del log). Si agregaste un archivo nuevo en `js/`, súmalo también a la lista `JS` de `sw.js`. Antes de publicar, corre las pruebas (`cd tests && npm test`, ver sección 4.5). La app carga el HTML, el JS y el CSS desde la red primero, así que basta con cerrarla y abrirla para ver la versión nueva.
+Cada vez que subas cambios a GitHub Pages, abre `sw.js` y sube la versión (`const VERSION = 'v17'` → `'v18'`…), y pon el mismo valor en `APP_VER` dentro de `js/nucleo/constantes.js` (sale en la columna *Versión app* del log). Si agregaste un archivo nuevo en `js/`, súmalo también a la lista `JS` de `sw.js`. Antes de publicar, corre las pruebas (`cd tests && npm test`, ver sección 4.5). La app carga el HTML, el JS y el CSS desde la red primero, así que basta con cerrarla y abrirla para ver la versión nueva.
 
 ---
 
@@ -765,7 +764,7 @@ Un punto azul en la esquina de un día indica que ese cambio aún no se ha subid
 - Con el tiempo real activo, el chip de arriba dice **⚡ En vivo**.
 - Mientras la app habla con Google (subir un día, traer cambios, actualizar avisos, escribir en el log) aparece una **barra azul animada arriba de la pantalla**, el chip del encabezado gira con **Sincronizando** y la tarjeta de Google dice en qué paso va: *Buscando el calendario…*, *Sincronizando días…*, *Actualizando avisos…*, *Escribiendo en el log…*.
 - Al terminar, la tarjeta dice **Al día · HH:MM** con la hora de la última sincronización.
-- La **versión** de la app (`v16`, …) se ve arriba junto a *ScotiaTech · GBS* y al final de la página. Debe coincidir con la última publicada; si no, cierra y abre la app (en PC, **Ctrl+Shift+R**).
+- La **versión** de la app (`v17`, …) se ve arriba junto a *ScotiaTech · GBS* y al final de la página. Debe coincidir con la última publicada; si no, cierra y abre la app (en PC, **Ctrl+Shift+R**).
 - **Ver log**: en la tarjeta de historial, en el detalle de cada día y en la tarjeta de Google hay un enlace directo a la hoja de Google Sheets.
 
 ---

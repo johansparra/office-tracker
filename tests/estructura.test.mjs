@@ -87,3 +87,13 @@ test('ningún error se traga en silencio: todo catch vacío está justificado co
     assert.equal(vacios.length,0,`${r}: catch vacío sin explicación`);
   }
 });
+
+test('todo archivo que piden sw.js, manifest.json e index.html existe',()=>{
+  const sw=fs.readFileSync(path.join(RAIZ,'sw.js'),'utf8');
+  const fijos=[...sw.match(/const ASSETS = \[([\s\S]*?)\];/)[1].matchAll(/'\.\/([^']+)'/g)].map(m=>m[1]);
+  const manifest=JSON.parse(fs.readFileSync(path.join(RAIZ,'manifest.json'),'utf8')).icons.map(i=>i.src);
+  const html=fs.readFileSync(path.join(RAIZ,'index.html'),'utf8');
+  const locales=[...html.matchAll(/(?:src|href)="(?!https?:|#)([^"]+)"/g)].map(m=>m[1]);
+  for(const f of [...fijos,...manifest,...locales]) assert.ok(fs.existsSync(path.join(RAIZ,f)),`no existe ${f}`);
+  assert.ok(manifest.length>=2&&locales.includes('img/icon-192.png'));
+});

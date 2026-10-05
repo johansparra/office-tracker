@@ -14,8 +14,11 @@ export async function correr(esc,impl){
   return {fotos,errores:a.errores(),consola:a.consola};
 }
 
-// La versión de la app cambia a propósito (v15 → v16); todo lo demás debe ser idéntico
-export const normalizar=x=>JSON.parse(JSON.stringify(x).replaceAll('"v16"','"v15"'));
+// La versión de la app cambia a propósito (v15 → la actual); todo lo demás debe ser idéntico
+import fs from 'node:fs';
+import { RAIZ } from './cargar.mjs';
+export const APP_VER=fs.readFileSync(`${RAIZ}/js/nucleo/constantes.js`,'utf8').match(/APP_VER='(v\d+)'/)[1];
+export const normalizar=x=>JSON.parse(JSON.stringify(x).replaceAll(`"${APP_VER}"`,'"v15"'));
 
 // Primera diferencia entre dos valores, con la ruta, para que el fallo diga exactamente qué cambió
 export function primeraDiferencia(a,b,ruta='raíz'){

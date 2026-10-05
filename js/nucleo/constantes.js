@@ -10,7 +10,7 @@ export const SCOPES=['https://www.googleapis.com/auth/calendar.app.created','htt
   'https://www.googleapis.com/auth/drive.file'];
 export const SCOPE=SCOPES.join(' ');
 export const LEGACY_SCOPE='https://www.googleapis.com/auth/calendar.events';   // solo para limpiar eventos de la v2
-export const APP_VER='v16';   // igual que VERSION en sw.js: súbelos juntos al publicar
+export const APP_VER='v17';   // igual que VERSION en sw.js: súbelos juntos al publicar
 export const HIDE_TAB='Ocultos';   // ids de registros borrados en la app (para que se oculten en todos los dispositivos)
 export const SHEET_NAME='Office Tracker · Historial', SHEET_TAB='Historial', FOLDER_NAME='office-tracker';   // Mi unidad/office-tracker/
 // RN-15: avisos de cada día hábil (hora de Bogotá)

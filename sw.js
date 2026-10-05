@@ -1,5 +1,5 @@
 // Sube este número cada vez que publiques cambios en GitHub Pages (y APP_VER en js/nucleo/constantes.js)
-const VERSION = 'v16';
+const VERSION = 'v17';
 const CACHE = `office-tracker-${VERSION}`;
 // Todos los módulos de js/: si agregas un archivo, súmalo aquí (para que la app abra sin internet).
 // La prueba tests/estructura.test.mjs falla si falta alguno.
@@ -15,7 +15,7 @@ const JS = [
   'funcionalidades/sincronizacion/sincronizar','funcionalidades/sincronizacion/reconciliar','funcionalidades/sincronizacion/tiempo-real',
   'ui/render','ui/iconos','ui/movimiento',
 ];
-const ASSETS = ['./','./index.html','./css/styles.css',...JS.map(f=>`./js/${f}.js`),'./manifest.json','./icon-192.png','./icon-512.png'];
+const ASSETS = ['./','./index.html','./css/styles.css',...JS.map(f=>`./js/${f}.js`),'./manifest.json','./img/icon-192.png','./img/icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
