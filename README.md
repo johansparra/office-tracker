@@ -250,7 +250,7 @@ flowchart TD
 | [js/](js/) | La lógica de la app: 34 módulos organizados por capas (ver [sección 4](#4-estructura-del-código-y-cómo-modificarlo)). | Para encontrar y cambiar cada cosa sin leer todo, y probar las reglas por separado. |
 | [sw.js](sw.js) | *Service worker*: guarda la app en caché para que abra sin internet y siempre trae la última versión publicada cuando hay red. | Requisito para que Chrome trate la web como app instalable y funcione offline. |
 | [manifest.json](manifest.json) | *Manifiesto PWA*: nombre, ícono, colores y modo pantalla completa (`standalone`). | Chrome lo exige para ofrecer **Instalar / Agregar a pantalla de inicio**. |
-| [img/](img/) | Íconos de la app (`icon-192.png`, `icon-512.png`). | Los usa el manifiesto (pantalla de inicio, splash) y el encabezado. |
+| [img/](img/) | Íconos de la app: `icon.svg` es el diseño fuente (vectorial) y `icon-192.png` / `icon-512.png` se generan desde él. | Los PNG los usa el manifiesto (pantalla de inicio, splash) y el encabezado. Si cambias el diseño, edita el SVG y vuelve a exportar los dos PNG; el dibujo debe quedar dentro del círculo central (radio 205 de 512) para que Android no lo recorte. |
 
 ### Pruebas
 

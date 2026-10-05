@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Office Tracker · ícono fuente. Los PNG (icon-192, icon-512) se generan desde este archivo.
+       Todo el dibujo está dentro de la zona segura de los íconos adaptables (círculo de radio 205 en el centro). -->
+  <defs>
+    <linearGradient id="fondo" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3b414b"/>
+      <stop offset="0.55" stop-color="#262a31"/>
+      <stop offset="1" stop-color="#16181d"/>
+    </linearGradient>
+    <radialGradient id="brillo" cx="256" cy="232" r="190" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#e0213f" stop-opacity="0.34"/>
+      <stop offset="0.6" stop-color="#e0213f" stop-opacity="0.07"/>
+      <stop offset="1" stop-color="#e0213f" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="luzSuperior" cx="120" cy="40" r="360" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="plata" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f1f3f6"/>
+      <stop offset="1" stop-color="#a9b0bb"/>
+    </linearGradient>
+    <linearGradient id="rojo" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff3d5a"/>
+      <stop offset="0.5" stop-color="#e0213f"/>
+      <stop offset="1" stop-color="#a50f28"/>
+    </linearGradient>
+    <linearGradient id="suelo" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#a9b0bb" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#c9ced6"/>
+      <stop offset="1" stop-color="#a9b0bb" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="faro" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.35" stop-color="#ff8a9b"/>
+      <stop offset="1" stop-color="#e0213f" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="cuadricula" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#ffffff" stroke-opacity="0.045" stroke-width="1"/>
+    </pattern>
+    <filter id="sombra" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <!-- Fondo grafito a sangre (los íconos adaptables recortan la forma) -->
+  <rect width="512" height="512" fill="url(#fondo)"/>
+  <rect width="512" height="512" fill="url(#cuadricula)"/>
+  <rect width="512" height="512" fill="url(#luzSuperior)"/>
+  <rect width="512" height="512" fill="url(#brillo)"/>
+
+  <!-- Emblema (escalado 10 %: sigue dentro de la zona segura) -->
+  <g transform="translate(256 248) scale(1.1) translate(-256 -248)">
+  <g filter="url(#sombra)">
+    <!-- Torre izquierda -->
+    <path d="M148 262a12 12 0 0 1 12-12h40a12 12 0 0 1 12 12v102h-64z" fill="url(#plata)"/>
+    <!-- Torre derecha -->
+    <path d="M300 222a12 12 0 0 1 12-12h40a12 12 0 0 1 12 12v142h-64z" fill="url(#plata)"/>
+    <!-- Torre central (la meta), en rojo Scotia -->
+    <path d="M224 162a12 12 0 0 1 12-12h40a12 12 0 0 1 12 12v202h-64z" fill="url(#rojo)"/>
+    <!-- Antena -->
+    <rect x="252.5" y="120" width="7" height="32" rx="3.5" fill="#e6e9ee"/>
+  </g>
+
+  <!-- Faro de la antena: «en vivo» -->
+  <circle cx="256" cy="114" r="22" fill="url(#faro)" opacity="0.9"/>
+  <circle cx="256" cy="114" r="6.5" fill="#ffffff"/>
+
+  <!-- Ventanas -->
+  <g fill="#262a31" fill-opacity="0.78">
+    <rect x="162" y="272" width="12" height="12" rx="3"/><rect x="186" y="272" width="12" height="12" rx="3"/>
+    <rect x="162" y="298" width="12" height="12" rx="3"/><rect x="186" y="298" width="12" height="12" rx="3"/>
+    <rect x="162" y="324" width="12" height="12" rx="3"/><rect x="186" y="324" width="12" height="12" rx="3"/>
+    <rect x="314" y="232" width="12" height="12" rx="3"/><rect x="338" y="232" width="12" height="12" rx="3"/>
+    <rect x="314" y="258" width="12" height="12" rx="3"/><rect x="338" y="258" width="12" height="12" rx="3"/>
+    <rect x="314" y="284" width="12" height="12" rx="3"/><rect x="338" y="284" width="12" height="12" rx="3"/>
+    <rect x="314" y="310" width="12" height="12" rx="3"/><rect x="338" y="310" width="12" height="12" rx="3"/>
+    <rect x="314" y="336" width="12" height="12" rx="3"/><rect x="338" y="336" width="12" height="12" rx="3"/>
+  </g>
+  <g fill="#ffe3e8" fill-opacity="0.55">
+    <rect x="238" y="172" width="12" height="12" rx="3"/><rect x="262" y="172" width="12" height="12" rx="3"/>
+    <rect x="238" y="198" width="12" height="12" rx="3"/><rect x="262" y="198" width="12" height="12" rx="3"/>
+    <rect x="238" y="224" width="12" height="12" rx="3"/><rect x="262" y="224" width="12" height="12" rx="3"/>
+    <rect x="238" y="250" width="12" height="12" rx="3"/><rect x="262" y="250" width="12" height="12" rx="3"/>
+    <rect x="238" y="276" width="12" height="12" rx="3"/><rect x="262" y="276" width="12" height="12" rx="3"/>
+    <rect x="238" y="302" width="12" height="12" rx="3"/><rect x="262" y="302" width="12" height="12" rx="3"/>
+  </g>
+  <!-- Una ventana encendida: «fui hoy» -->
+  <rect x="262" y="250" width="12" height="12" rx="3" fill="#ffffff"/>
+  <!-- Puerta -->
+  <rect x="246" y="334" width="20" height="30" rx="4" fill="#7d0b1f" fill-opacity="0.9"/>
+
+  <!-- Suelo -->
+  <rect x="128" y="370" width="256" height="6" rx="3" fill="url(#suelo)"/>
+  </g>
+</svg>
