@@ -1,0 +1,17 @@
+config.js
+utilidades.js
+festivos.js
+meta.js
+almacenamiento.js
+auditoria.js
+google-auth.js
+google-calendar.js
+google-sheets.js
+firebase.js
+sincronizacion.js
+cambios.js
+aviso.js
+historial-dia.js
+render.js
+movimiento.js
+app.js

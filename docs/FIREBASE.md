@@ -182,7 +182,7 @@ users/{tu uid}/
 
 Lo implementado:
 
-1. **Cargar el SDK de Firebase** desde `https://www.gstatic.com/firebasejs/…` y pegar tu `firebaseConfig` en `js/firebase.js` (`FB_CONFIG`).
+1. **Cargar el SDK de Firebase** desde `https://www.gstatic.com/firebasejs/…` y pegar tu `firebaseConfig` en `js/adaptadores/firestore.js` (`FB_CONFIG`).
 2. **Inicio de sesión:** botón *Entrar con Google* (Firebase Auth). La sesión queda guardada y **no vence cada hora**.
 3. **Escuchas en tiempo real** (`onSnapshot`) sobre `days`, `log` y `hidden`: cuando otro dispositivo cambia algo, la pantalla se actualiza **al instante**.
 4. **Modo sin conexión:** Firestore guarda una copia local; lo que marques sin internet se sube solo al volver.

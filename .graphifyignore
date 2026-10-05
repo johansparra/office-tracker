@@ -1,3 +1,6 @@
 # Skills de Claude Code: no son parte de la app
 .claude/
 skills-lock.json
+# Pruebas: dependencias y la copia congelada de la v15
+tests/node_modules/
+tests/referencia-v15/

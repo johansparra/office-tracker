@@ -21,18 +21,18 @@ No tiene servidor propio: son archivos estáticos publicados en GitHub Pages. To
 
 ## 1. Reglas de negocio
 
-Cada regla dice **dónde está en el código**, para cambiarla sin buscar.
+Cada regla dice **dónde está en el código**, para cambiarla sin buscar, y tiene una prueba con el mismo número en [tests/reglas.test.mjs](tests/reglas.test.mjs) (ver [sección 4.5](#45-pruebas)). Las reglas puras viven en [js/nucleo/](js/nucleo/).
 
 ### 1.1 Meta mensual
 
 | # | Regla | Código |
 |---|---|---|
-| RN-01 | La meta base es **8 visitas al mes**. | `BASE` en [js/config.js](js/config.js) |
-| RN-02 | Las semanas van de **lunes a domingo**. Lo ideal son **2 visitas por semana**. | `weeks()` en [js/meta.js](js/meta.js) |
-| RN-03 | Una semana con **un festivo o un día libre/vacación** tiene cuota **1** en vez de 2. El festivo cuenta **cualquier día**, incluso sábado o domingo. | `stats()` → `hasAdj` |
-| RN-04 | **Meta ajustada = 8 − número de semanas con festivo o día libre** (nunca menos de 0). | `stats()` → `target` |
-| RN-05 | **Semanas que cruzan de mes:** se muestran completas, pero solo cuentan los días del mes visible (visitas, festivos y días libres). Ningún día suma en dos meses. | `stats()` → `inMonth` |
-| RN-06 | Una **visita** es un día marcado como 🏢 Oficina, incluido un festivo entre semana. Las visitas por encima de la meta cuentan como extra. | `stats()` → `visited` |
+| RN-01 | La meta base es **8 visitas al mes**. | `BASE` en [js/nucleo/constantes.js](js/nucleo/constantes.js) |
+| RN-02 | Las semanas van de **lunes a domingo**. Lo ideal son **2 visitas por semana**. | `weeks()` en [js/nucleo/meta.js](js/nucleo/meta.js) |
+| RN-03 | Una semana con **un festivo o un día libre/vacación** tiene cuota **1** en vez de 2. El festivo cuenta **cualquier día**, incluso sábado o domingo. | `calcularMes()` → `hasAdj` |
+| RN-04 | **Meta ajustada = 8 − número de semanas con festivo o día libre** (nunca menos de 0). | `calcularMes()` → `target` |
+| RN-05 | **Semanas que cruzan de mes:** se muestran completas, pero solo cuentan los días del mes visible (visitas, festivos y días libres). Ningún día suma en dos meses. | `calcularMes()` → `inMonth` |
+| RN-06 | Una **visita** es un día marcado como 🏢 Oficina, incluido un festivo entre semana. Las visitas por encima de la meta cuentan como extra. | `calcularMes()` → `visited` |
 
 **Ejemplo:** octubre 2026 tiene el festivo del lunes 12 (Día de la Raza). Esa semana tiene cuota 1 → meta = 8 − 1 = **7**.
 
@@ -40,9 +40,9 @@ Cada regla dice **dónde está en el código**, para cambiarla sin buscar.
 
 | # | Regla | Código |
 |---|---|---|
-| RN-07 | **Días hábiles libres** = días de lunes a viernes, **desde hoy** hasta fin de mes, que no son festivo y aún no están marcados. | `stats()` → `open` |
-| RN-08 | **Margen = días hábiles libres − visitas que faltan.** Lo que manda es la meta del mes, no las 2 por semana. | `stats()` → `slack` |
-| RN-09 | Según el margen, la tarjeta del mes muestra: | `render()` en [js/render.js](js/render.js) |
+| RN-07 | **Días hábiles libres** = días de lunes a viernes, **desde hoy** hasta fin de mes, que no son festivo y aún no están marcados. | `calcularMes()` → `open` |
+| RN-08 | **Margen = días hábiles libres − visitas que faltan.** Lo que manda es la meta del mes, no las 2 por semana. | `calcularMes()` → `slack` |
+| RN-09 | Según el margen, la tarjeta del mes muestra: | `estadoMes()` en [js/nucleo/meta.js](js/nucleo/meta.js); textos en `renderMes()` de [js/funcionalidades/mes/vista.js](js/funcionalidades/mes/vista.js) |
 
 | Situación | Mensaje |
 |---|---|
@@ -55,13 +55,13 @@ Cada regla dice **dónde está en el código**, para cambiarla sin buscar.
 
 | # | Regla | Código |
 |---|---|---|
-| RN-10 | Con margen 0 o negativo, **todos los días hábiles libres son obligatorios**: se marcan con borde rojo punteado (leyenda *Obligatorio*) y su aviso de las 10:00 cambia a **"⚠️ Hoy tienes que ir a la oficina"**. Si el día deja de ser obligatorio, el aviso vuelve a su texto normal. | `stats()` → `must`, `reminderTitle()` en [js/google-calendar.js](js/google-calendar.js) |
+| RN-10 | Con margen 0 o negativo, **todos los días hábiles libres son obligatorios**: se marcan con borde rojo punteado (leyenda *Obligatorio*) y su aviso de las 10:00 cambia a **"⚠️ Hoy tienes que ir a la oficina"**. Si el día deja de ser obligatorio, el aviso vuelve a su texto normal. | `calcularMes()` → `must`, `tituloAviso()` en [js/nucleo/avisos.js](js/nucleo/avisos.js) |
 
 ### 1.3 Marcar días
 
 | # | Regla | Código |
 |---|---|---|
-| RN-11 | Cada toque avanza el estado del día según su tipo: | `toggle()` en [js/cambios.js](js/cambios.js) |
+| RN-11 | Cada toque avanza el estado del día según su tipo: | `siguienteEstado()` en [js/nucleo/marcado.js](js/nucleo/marcado.js) |
 
 | Tipo de día | Ciclo de toques |
 |---|---|
@@ -71,14 +71,14 @@ Cada regla dice **dónde está en el código**, para cambiarla sin buscar.
 
 | # | Regla | Código |
 |---|---|---|
-| RN-12 | Cada cambio se ve al instante, pero espera **5 segundos** con un botón **Deshacer** antes de subirse a Google. Si sales de la app antes, se sube de inmediato. | `UNDO_MS`, `applyChange()`, `schedulePush()`, `flushPushes()` |
-| RN-13 | La app funciona **sin cuenta de Google**: los datos quedan en el dispositivo (`localStorage`). Google y Firebase son opcionales. | [js/almacenamiento.js](js/almacenamiento.js) |
+| RN-12 | Cada cambio se ve al instante, pero espera **5 segundos** con un botón **Deshacer** antes de subirse a Google. Si sales de la app antes, se sube de inmediato. | `UNDO_MS`; `applyChange()`, `schedulePush()`, `flushPushes()` en [js/funcionalidades/marcar-dia/marcar.js](js/funcionalidades/marcar-dia/marcar.js) |
+| RN-13 | La app funciona **sin cuenta de Google**: los datos quedan en el dispositivo (`localStorage`). Google y Firebase son opcionales. | [js/estado/almacenamiento.js](js/estado/almacenamiento.js) |
 
 ### 1.4 Festivos de Colombia
 
 | # | Regla | Código |
 |---|---|---|
-| RN-14 | Los festivos se calculan solos para cualquier año: no hay que marcarlos. | `holidays()` en [js/festivos.js](js/festivos.js) |
+| RN-14 | Los festivos se calculan solos para cualquier año: no hay que marcarlos. | `holidays()` en [js/nucleo/festivos.js](js/nucleo/festivos.js) |
 
 | Tipo | Festivos | Cálculo |
 |---|---|---|
@@ -90,32 +90,32 @@ Cada regla dice **dónde está en el código**, para cambiarla sin buscar.
 
 | # | Regla | Código |
 |---|---|---|
-| RN-15 | Hay dos avisos por día: **10:00 a. m.** "¿Vas a la oficina hoy?" y **4:30 p. m.** "¿Fuiste a la oficina hoy?", hora de Bogotá. | `SLOTS` en [js/config.js](js/config.js) |
-| RN-16 | Solo de **lunes a viernes**, sin festivos, en días **sin marcar**, y solo para horas que aún no pasaron. Se programan **21 días** hacia adelante. | `desiredSlots()`, `HORIZON` |
-| RN-17 | Al marcar un día se borran sus avisos pendientes (si confirmas a las 11, no suena el de las 4:30). | `syncRemindersForDate()` |
-| RN-18 | Cada aviso trae un enlace con un **código único**. Al abrirlo, la app verifica que el código corresponda a ese día: **Aviso ✓** (verificado), **Aviso ⚠** (no coincide) o **Aviso ?** (no se pudo verificar). | `verifyNonce()` en [js/aviso.js](js/aviso.js) |
+| RN-15 | Hay dos avisos por día: **10:00 a. m.** "¿Vas a la oficina hoy?" y **4:30 p. m.** "¿Fuiste a la oficina hoy?", hora de Bogotá. | `SLOTS` en [js/nucleo/constantes.js](js/nucleo/constantes.js) |
+| RN-16 | Solo de **lunes a viernes**, sin festivos, en días **sin marcar**, y solo para horas que aún no pasaron. Se programan **21 días** hacia adelante. | `avisosDeseados()` en [js/nucleo/avisos.js](js/nucleo/avisos.js), `HORIZON` |
+| RN-17 | Al marcar un día se borran sus avisos pendientes (si confirmas a las 11, no suena el de las 4:30). | `syncRemindersForDate()` en [js/funcionalidades/avisos/programar.js](js/funcionalidades/avisos/programar.js) |
+| RN-18 | Cada aviso trae un enlace con un **código único**. Al abrirlo, la app verifica que el código corresponda a ese día: **Aviso ✓** (verificado), **Aviso ⚠** (no coincide) o **Aviso ?** (no se pudo verificar). | `verifyNonce()` en [js/funcionalidades/avisos/enlace.js](js/funcionalidades/avisos/enlace.js) |
 | RN-19 | Desde el aviso se puede responder **Fui a la oficina**, **Día libre** u **Hoy no fui**. *Hoy no fui* no cambia el día, pero cancela el aviso que quede ese día y queda registrado. | `openNotifSheet()` |
 
 ### 1.6 Sincronización y conflictos
 
 | # | Regla | Código |
 |---|---|---|
-| RN-20 | Hay **un solo calendario "Office Tracker" por cuenta de Google**. Si aparecen varios (dos dispositivos conectándose a la vez), todos eligen el de id menor, le copian los días de los otros y borran los sobrantes. **Nunca** se crea uno nuevo sin haber podido buscar antes. | `ensureCalendar()`, `mergeCalendar()` |
-| RN-21 | Un evento de día completo del calendario Office Tracker con 🏢, "oficina" u "office" en el título es **Oficina**; con 🏖️, "libre" o "vacaciones" es **Día libre**. Cualquier otro evento de día en ese calendario cuenta como Oficina. | `classify()` |
-| RN-22 | **Sin Firebase:** si un día tiene un cambio local aún sin subir (punto azul), **gana el dispositivo**. Si no, **gana Google Calendar**. | `reconcileMonth()` |
-| RN-23 | **Con Firebase:** Firestore es la fuente de verdad. Cada día guarda la hora de su último cambio y **gana el cambio más reciente**. Una edición hecha directamente en Google Calendar solo se importa si es **posterior** al último cambio en Firestore; si no, se corrige Calendar. | `onFsDays()`, `reconcileMonthFS()` en [js/firebase.js](js/firebase.js) |
-| RN-24 | Al unirse a un calendario existente (segundo dispositivo), gana lo que ya está en Google; solo se suben los días que Google no tiene. Lo mismo con Firestore la primera vez. | `ensureCalendar()`, `onFsDays()` |
-| RN-25 | Si un día tiene varios eventos, se deja uno y se borran los duplicados. | `reconcileMonth()` |
+| RN-20 | Hay **un solo calendario "Office Tracker" por cuenta de Google**. Si aparecen varios (dos dispositivos conectándose a la vez), todos eligen el de id menor, le copian los días de los otros y borran los sobrantes. **Nunca** se crea uno nuevo sin haber podido buscar antes. | `ensureCalendar()` en [js/funcionalidades/sincronizacion/reconciliar.js](js/funcionalidades/sincronizacion/reconciliar.js), `mergeCalendar()` en [js/adaptadores/google-calendar.js](js/adaptadores/google-calendar.js) |
+| RN-21 | Un evento de día completo del calendario Office Tracker con 🏢, "oficina" u "office" en el título es **Oficina**; con 🏖️, "libre" o "vacaciones" es **Día libre**. Cualquier otro evento de día en ese calendario cuenta como Oficina. | `classify()` en [js/nucleo/conflictos.js](js/nucleo/conflictos.js) |
+| RN-22 | **Sin Firebase:** si un día tiene un cambio local aún sin subir (punto azul), **gana el dispositivo**. Si no, **gana Google Calendar**. | `importarDeCalendar()` en [js/nucleo/conflictos.js](js/nucleo/conflictos.js), aplicada en `reconcileMonth()` |
+| RN-23 | **Con Firebase:** Firestore es la fuente de verdad. Cada día guarda la hora de su último cambio y **gana el cambio más reciente**. Una edición hecha directamente en Google Calendar solo se importa si es **posterior** al último cambio en Firestore; si no, se corrige Calendar. | `decidirDiaConFirebase()` y `decidirDiaRemoto()` en [js/nucleo/conflictos.js](js/nucleo/conflictos.js), aplicadas en `reconcileMonthFS()` y [js/funcionalidades/sincronizacion/tiempo-real.js](js/funcionalidades/sincronizacion/tiempo-real.js) |
+| RN-24 | Al unirse a un calendario existente (segundo dispositivo), gana lo que ya está en Google; solo se suben los días que Google no tiene. Lo mismo con Firestore la primera vez. | `diasEnCalendario()` en [js/nucleo/conflictos.js](js/nucleo/conflictos.js), usada en `ensureCalendar()`; `onFsDays()` |
+| RN-25 | Si un día tiene varios eventos, se deja uno y se borran los duplicados. | `elegirEvento()` en [js/nucleo/conflictos.js](js/nucleo/conflictos.js) |
 
 ### 1.7 Historial y auditoría
 
 | # | Regla | Código |
 |---|---|---|
-| RN-26 | **Todo cambio queda registrado** con: id único, fecha y hora exacta, día, estado anterior y nuevo, **origen** (Manual, Aviso ✓/⚠/?, Calendar, Deshecho) y dispositivo. | `logChange()` en [js/auditoria.js](js/auditoria.js) |
-| RN-27 | La hoja **"Office Tracker · Historial"** es **solo de agregar** (*append-only*): la app nunca borra ni modifica filas. | `syncSheet()` en [js/google-sheets.js](js/google-sheets.js) |
-| RN-28 | Borrar un registro en la app solo lo **oculta** (en todos los dispositivos, vía pestaña *Ocultos* y Firestore). Si aún no había llegado a la hoja, se sube igual. Borrar registros **no cambia** los días marcados. | `deleteLog()` |
-| RN-29 | Un cambio que llega por Calendar y que ya está explicado por un registro de otro dispositivo **no se registra dos veces**. Solo las ediciones hechas directamente en Google Calendar quedan como origen *Calendar*. | `explained()` |
-| RN-30 | El historial de la app guarda hasta **1000 registros**. Los últimos **10** de cada día se escriben también en la descripción del evento en Google Calendar. | `logChange()`, `dayBody()` |
+| RN-26 | **Todo cambio queda registrado** con: id único, fecha y hora exacta, día, estado anterior y nuevo, **origen** (Manual, Aviso ✓/⚠/?, Calendar, Deshecho) y dispositivo. | `logChange()` en [js/funcionalidades/historial/registro.js](js/funcionalidades/historial/registro.js); textos en [js/nucleo/registro.js](js/nucleo/registro.js) |
+| RN-27 | La hoja **"Office Tracker · Historial"** es **solo de agregar** (*append-only*): la app nunca borra ni modifica filas. | `syncSheet()` en [js/funcionalidades/historial/registro.js](js/funcionalidades/historial/registro.js); formato de filas en [js/adaptadores/google-sheets.js](js/adaptadores/google-sheets.js) |
+| RN-28 | Borrar un registro en la app solo lo **oculta** (en todos los dispositivos, vía pestaña *Ocultos* y Firestore). Si aún no había llegado a la hoja, se sube igual. Borrar registros **no cambia** los días marcados. | `deleteLog()` en [js/funcionalidades/historial/registro.js](js/funcionalidades/historial/registro.js) |
+| RN-29 | Un cambio que llega por Calendar y que ya está explicado por un registro de otro dispositivo **no se registra dos veces**. Solo las ediciones hechas directamente en Google Calendar quedan como origen *Calendar*. | `explained()` en [js/nucleo/conflictos.js](js/nucleo/conflictos.js) |
+| RN-30 | El historial de la app guarda hasta **1000 registros**. Los últimos **10** de cada día se escriben también en la descripción del evento en Google Calendar. | `MAX_LOG` en [js/funcionalidades/historial/registro.js](js/funcionalidades/historial/registro.js), `dayBody()` en [js/funcionalidades/sincronizacion/reconciliar.js](js/funcionalidades/sincronizacion/reconciliar.js) |
 
 ---
 
@@ -183,14 +183,14 @@ flowchart TD
 ```mermaid
 sequenceDiagram
   actor U as Usuario
-  participant A as App (cambios.js)
+  participant A as App (marcar.js)
   participant L as localStorage
   participant F as Firestore
   participant G as Google Calendar
   participant H as Hoja del log
 
   U->>A: toca un día
-  A->>A: toggle() calcula el estado siguiente (RN-11)
+  A->>A: siguienteEstado() calcula el estado siguiente (RN-11)
   A->>L: guarda el día y el registro del historial
   A->>F: escribe el día y el registro (si hay tiempo real)
   F-->>F: avisa al instante a los otros dispositivos
@@ -245,12 +245,20 @@ flowchart TD
 
 | Archivo | Qué es | Por qué existe |
 |---|---|---|
-| [index.html](index.html) | La estructura de la pantalla (encabezado, tarjetas, calendario, hojas inferiores) y la lista de scripts en orden de carga. | Es la página que abre el navegador. No tiene lógica: solo HTML. |
+| [index.html](index.html) | La estructura de la pantalla (encabezado, tarjetas, calendario, hojas inferiores). Carga un solo módulo: `js/app.js`. | Es la página que abre el navegador. No tiene lógica: solo HTML. |
 | [css/styles.css](css/styles.css) | Todos los estilos: colores (variables en `:root`), tarjetas, calendario, animaciones. | Separar el diseño del código. |
-| [js/](js/) | La lógica de la app, en 17 archivos por responsabilidad (ver [sección 4](#4-estructura-del-código-y-cómo-modificarlo)). | Para encontrar y cambiar cada cosa sin leer todo. |
+| [js/](js/) | La lógica de la app: 34 módulos organizados por capas (ver [sección 4](#4-estructura-del-código-y-cómo-modificarlo)). | Para encontrar y cambiar cada cosa sin leer todo, y probar las reglas por separado. |
 | [sw.js](sw.js) | *Service worker*: guarda la app en caché para que abra sin internet y siempre trae la última versión publicada cuando hay red. | Requisito para que Chrome trate la web como app instalable y funcione offline. |
 | [manifest.json](manifest.json) | *Manifiesto PWA*: nombre, ícono, colores y modo pantalla completa (`standalone`). | Chrome lo exige para ofrecer **Instalar / Agregar a pantalla de inicio**. |
 | `icon-192.png`, `icon-512.png` | Íconos de la app. | Los usa el manifiesto (pantalla de inicio, splash). |
+
+### Pruebas
+
+| Archivo | Qué es |
+|---|---|
+| [tests/](tests/) | Pruebas automáticas (ver [sección 4.5](#45-pruebas)). No son parte de la app: el navegador nunca las carga. |
+| `tests/referencia-v15/` | Copia congelada de la versión v15 (antes de la reestructuración). Las pruebas de equivalencia comparan la app actual contra ella. **No se edita.** |
+| `tests/package.json` | Única dependencia de las pruebas: **jsdom**, un navegador simulado. La app sigue sin dependencias. |
 
 ### Documentación
 
@@ -266,7 +274,7 @@ flowchart TD
 | [CLAUDE.md](CLAUDE.md) | Instrucciones para **Claude Code** (el asistente de IA usado para desarrollar): cómo está armado el código y qué convenciones seguir. | No. Solo lo lee el asistente. |
 | `.claude/skills/`, `skills-lock.json` | *Skills* de Claude Code: guías de diseño y animación que el asistente consulta al trabajar en la interfaz. | No. La app nunca los carga. |
 | `graphify-out/` | Grafo de conocimiento del código generado por la herramienta **graphify** (`graph.html` se abre en el navegador; `GRAPH_REPORT.md` resume la arquitectura). Sirve para navegar el código y responder preguntas sobre él. | No. Se regenera con `/graphify` en Claude Code cuando cambia la estructura. |
-| `.graphifyignore` | Le dice a graphify que ignore `.claude/` y `skills-lock.json`. | No. |
+| `.graphifyignore` | Le dice a graphify qué carpetas ignorar. | No. |
 
 > GitHub Pages publica todo el repositorio, incluidos estos archivos. No pasa nada: no tienen datos sensibles y el navegador solo carga lo que pide `index.html`.
 
@@ -274,61 +282,146 @@ flowchart TD
 
 ## 4. Estructura del código y cómo modificarlo
 
-### 4.1 Los archivos de `js/`
+### 4.1 Arquitectura: hexagonal ligera, organizada por funcionalidades
 
-Son **scripts normales** (no módulos) que comparten variables globales. **El orden de carga importa**: cada archivo puede usar lo definido en los anteriores. El orden está en `index.html` y es este:
+La idea en una frase: **el núcleo decide, los adaptadores hablan con el exterior y las funcionalidades conectan las dos cosas con la pantalla.**
 
-| # | Archivo | Responsabilidad | Funciones principales |
-|---|---|---|---|
-| 1 | [config.js](js/config.js) | Constantes de negocio y configuración, íconos y el **estado global `S`**. | `BASE`, `UNDO_MS`, `HORIZON`, `SLOTS`, `SCOPES`, `APP_VER`, `TYPE_LBL`, `IC`, `S` |
-| 2 | [utilidades.js](js/utilidades.js) | Fechas y formato. Las fechas siempre son claves `AAAA-MM-DD` en hora local. | `toKey`, `fromKey`, `addD`, `monday`, `isWeekend`, `fmtDay` |
-| 3 | [festivos.js](js/festivos.js) | Festivos de Colombia (RN-14). | `easter`, `holidays`, `getHol` |
-| 4 | [meta.js](js/meta.js) | **Meta, cuotas, margen y días obligatorios** (RN-01 a RN-10). | `weeks`, `stats` |
-| 5 | [almacenamiento.js](js/almacenamiento.js) | Guardar y leer `localStorage`; migración de versiones viejas; sesión de Google. | `save`, `load`, `setToken`, `hasToken` |
-| 6 | [auditoria.js](js/auditoria.js) | Registro del historial y textos del origen (RN-26). | `logChange`, `srcBadge`, `srcText` |
-| 7 | [google-auth.js](js/google-auth.js) | Inicio de sesión con Google (OAuth), conectar y desconectar. | `initGIS`, `connect`, `disconnect`, `resetConnection` |
-| 8 | [google-calendar.js](js/google-calendar.js) | Llamadas a Google (`gcal`), calendario propio, eventos de día, reconciliación sin Firebase y avisos. | `gcal`, `ensureCalendar`, `classify`, `pushDay`, `reconcileMonth`, `reconcileReminders` |
-| 9 | [google-sheets.js](js/google-sheets.js) | Hoja de historial en Drive: crearla, repararla, escribir y leer filas, ocultos. | `ensureSheet`, `LOG_COLS`, `logRow`, `syncSheet`, `pullSheet`, `deleteLog` |
-| 10 | [firebase.js](js/firebase.js) | Tiempo real: configuración, login, escrituras y escuchas de Firestore, reconciliación con Firebase. | `FB_CONFIG`, `fbInit`, `fsDay`, `onFsDays`, `reconcileMonthFS` |
-| 11 | [sincronizacion.js](js/sincronizacion.js) | Cola de trabajos, sincronización completa y **cuándo** sincronizar (detección de cambios, intervalos, al volver a la app). | `enqueue`, `syncAll`, `checkChanges` |
-| 12 | [cambios.js](js/cambios.js) | Marcar un día, deshacer y programar la subida (RN-11, RN-12). | `toggle`, `applyChange`, `schedulePush`, `doUndo` |
-| 13 | [aviso.js](js/aviso.js) | Enlace desde el aviso de Calendar (`?d=…&r=…&n=…`) y su verificación (RN-18, RN-19). | `readDeepLink`, `verifyNonce`, `openNotifSheet` |
-| 14 | [historial-dia.js](js/historial-dia.js) | Hoja con el historial de un día (mantener presionado). | `openDaySheet` |
-| 15 | [render.js](js/render.js) | Dibuja **toda** la pantalla desde `S` con plantillas HTML. | `render` |
-| 16 | [movimiento.js](js/movimiento.js) | Animaciones (solo `transform`/`opacity`; se apagan si el sistema pide menos movimiento) y abrir/cerrar hojas. | `anim`, `afterRender`, `popDay`, `showOv`, `hideOv` |
-| 17 | [app.js](js/app.js) | Navegación entre meses, botones fijos y **arranque** de la app. | `goMonth`, INIT |
+```mermaid
+flowchart TB
+  APP["app.js<br/>arranque"] --> FUN
+  subgraph FUN["funcionalidades/ — cada función con su lógica y su pantalla"]
+    MES["mes"] ~~~ MAR["marcar-dia"] ~~~ AVI["avisos"] ~~~ HIS["historial"] ~~~ CON["conexion"] ~~~ SIN["sincronizacion"]
+  end
+  FUN --> UI["ui/<br/>render, íconos, animaciones"]
+  FUN --> EST["estado/<br/>S y su guardado"]
+  FUN --> ADA["adaptadores/<br/>Google, Firebase, errores"]
+  FUN --> NUC
+  UI --> NUC
+  EST --> NUC
+  ADA --> NUC
+  subgraph NUC["nucleo/ — reglas de negocio puras: sin pantalla, sin red → se prueban con node"]
+    direction LR
+    N1["meta"] ~~~ N2["festivos"] ~~~ N3["marcado"] ~~~ N4["avisos"] ~~~ N5["conflictos"]
+  end
+  ADA <--> EXT[("Google Calendar · Sheets · Drive<br/>Firebase · localStorage")]
+```
 
-### 4.2 ¿Dónde cambio…?
+| Capa | Qué contiene | Qué puede usar |
+|---|---|---|
+| `nucleo/` | Las reglas de negocio (RN-01 a RN-30) como funciones puras: reciben datos y devuelven una decisión. | Solo otras partes del núcleo. **Nunca** la pantalla, la red, `localStorage` ni el reloj. |
+| `estado/` | El objeto `S` con todo lo que la app sabe, la fecha de hoy y el guardado en el dispositivo. | Núcleo, y los adaptadores básicos (errores, ids). |
+| `adaptadores/` | Lo único que habla con el exterior: Google (`gcal()`), Calendar, Sheets/Drive, Firebase, `crypto` y el registro de errores. Sin reglas de negocio. | Núcleo y estado. |
+| `funcionalidades/` | Cada función de la app: toma las decisiones del núcleo y las ejecuta con los adaptadores; dibuja su parte de la pantalla. | Todo lo anterior. |
+| `ui/` | Piezas de interfaz compartidas: `render()` reúne las vistas; íconos; animaciones y hojas. | Todo lo anterior (`render.js` reúne las vistas de las funcionalidades). |
+
+Son **módulos ES** (`import`/`export`): cada archivo declara qué usa de los demás, así que no hay variables globales sueltas ni orden de carga que respetar. Funcionan directo en el navegador, sin compilar.
+
+Estas reglas no son solo una sugerencia: [tests/estructura.test.mjs](tests/estructura.test.mjs) falla si el núcleo usa la pantalla o la red, si una capa importa a una de afuera, si un módulo queda suelto o si falta en `sw.js`.
+
+### 4.2 Los 34 módulos
+
+```
+js/
+├── app.js                                 arranque: conecta todo y carga los datos
+├── nucleo/                                REGLAS DE NEGOCIO PURAS
+│   ├── constantes.js                      BASE, UNDO_MS, HORIZON, SLOTS, SCOPES, APP_VER, TYPE_LBL…
+│   ├── fechas.js                          claves 'AAAA-MM-DD', semana ISO, formatos
+│   ├── festivos.js                        RN-14 festivos de Colombia
+│   ├── meta.js                            RN-01..10 calcularMes(), estadoMes()
+│   ├── marcado.js                         RN-11 siguienteEstado()
+│   ├── avisos.js                          RN-15..17 avisosDeseados(), tituloAviso(), cuerpoAviso()
+│   ├── conflictos.js                      RN-21..25, 29 quién gana; classify(), explained()
+│   └── registro.js                        RN-26 textos del origen, validar un registro
+├── estado/
+│   ├── estado.js                          S y la fecha de hoy
+│   └── almacenamiento.js                  save(), load() con validación, sesión de Google
+├── adaptadores/                           HABLAN CON EL EXTERIOR
+│   ├── errores.js                         reportar(), seguro(), captura de errores no controlados
+│   ├── aleatorio.js                       rid()
+│   ├── google-api.js                      gcal(): llamadas a Google y sus errores
+│   ├── google-auth.js                     Google Identity Services
+│   ├── google-calendar.js                 calendarios y eventos
+│   ├── google-sheets.js                   hoja del historial: crear, reparar, filas
+│   └── firestore.js                       Firebase Auth y Firestore
+├── funcionalidades/
+│   ├── mes/vista.js                       resumen, alerta, calendario, festivos, semana a semana
+│   ├── mes/navegacion.js                  cambiar de mes, deslizar, Escape
+│   ├── marcar-dia/marcar.js               applyChange(), toggle(), deshacer
+│   ├── avisos/programar.js                crear/corregir/borrar avisos en Calendar
+│   ├── avisos/enlace.js                   abrir un aviso y verificar su código
+│   ├── historial/registro.js              logChange(), subir a la hoja, ocultar
+│   ├── historial/tarjeta.js               tarjeta «Historial de cambios»
+│   ├── historial/historial-dia.js         hoja con el historial de un día
+│   ├── conexion/sesion.js                 conectar, permisos, desconectar, tiempo real, limpieza v2
+│   ├── conexion/tarjeta.js                tarjeta de Google y chip del encabezado
+│   ├── sincronizacion/sincronizar.js      cola, syncAll(), cuándo sincronizar
+│   ├── sincronizacion/reconciliar.js      calendario único, eventos de día, mes visible
+│   └── sincronizacion/tiempo-real.js      escuchas y escrituras de Firestore
+└── ui/
+    ├── render.js                          dibuja toda la pantalla (cada tarjeta aislada)
+    ├── iconos.js                          SVG y chips de estado
+    └── movimiento.js                      animaciones y hojas inferiores
+```
+
+### 4.3 ¿Dónde cambio…?
 
 | Quiero cambiar… | Archivo | Qué tocar |
 |---|---|---|
-| La meta base (8) o el tiempo de deshacer | `js/config.js` | `BASE`, `UNDO_MS` |
-| Cómo se calcula la cuota o la meta | `js/meta.js` | `stats()` |
-| Umbrales de los mensajes (por ejemplo "poco margen" con 2) | `js/render.js` | bloque *Resumen del mes* (`s.slack>2`) |
-| Agregar o corregir un festivo | `js/festivos.js` | `holidays()` |
-| Horas o textos de los avisos, o los días hacia adelante | `js/config.js` | `SLOTS`, `HORIZON` |
-| Textos o partes de la pantalla | `js/render.js` (y `index.html` para lo fijo) | `render()` |
+| La meta base (8) o el tiempo de deshacer | `js/nucleo/constantes.js` | `BASE`, `UNDO_MS` |
+| Cómo se calcula la cuota o la meta | `js/nucleo/meta.js` | `calcularMes()` |
+| Cuándo se muestra cada mensaje (por ejemplo "poco margen" con 2) | `js/nucleo/meta.js` | `estadoMes()` |
+| El texto de los mensajes del mes | `js/funcionalidades/mes/vista.js` | `renderMes()` |
+| Agregar o corregir un festivo | `js/nucleo/festivos.js` | `holidays()` |
+| Horas o textos de los avisos, o los días hacia adelante | `js/nucleo/constantes.js` | `SLOTS`, `HORIZON` |
+| Qué días tienen avisos | `js/nucleo/avisos.js` | `avisosDeseados()` |
+| Quién gana cuando hay diferencias con Calendar o Firestore | `js/nucleo/conflictos.js` | `importarDeCalendar()`, `decidirDiaConFirebase()`, `decidirDiaRemoto()` |
+| Cómo se interpreta el título de un evento | `js/nucleo/conflictos.js` | `classify()` |
 | Colores, tamaños, tipografía | `css/styles.css` | variables de `:root` |
-| Columnas del log en la hoja | `js/google-sheets.js` | `LOG_COLS` y `logRow()`; agrega columnas **solo al final** para no romper las filas existentes |
-| Cada cuánto se revisan cambios | `js/sincronizacion.js` | `WATCH_MS`, `WATCH_FB_MS`, `FULL_MS` |
+| Columnas del log en la hoja | `js/adaptadores/google-sheets.js` | `LOG_COLS` y `logRow()`; agrega columnas **solo al final** para no romper las filas existentes |
+| Cada cuánto se revisan cambios | `js/funcionalidades/sincronizacion/sincronizar.js` | `WATCH_MS`, `WATCH_FB_MS`, `FULL_MS` |
 
-### 4.3 Convenciones para agregar lógica
+### 4.4 Convenciones para agregar lógica
 
-- **Estado:** todo vive en el objeto global `S` (`js/config.js`). Si agregas un dato que debe sobrevivir al cerrar la app, súmalo en `save()` y `load()` (`js/almacenamiento.js`).
+- **Una regla de negocio nueva va en `nucleo/`** como función pura (recibe datos, devuelve una decisión) y con su prueba en `tests/reglas.test.mjs`. La funcionalidad la usa; no la reescribe.
+- **Estado:** todo vive en `S` (`js/estado/estado.js`). Si agregas un dato que debe sobrevivir al cerrar la app, súmalo en `save()` y en `load()` (`js/estado/almacenamiento.js`), con su validación.
 - **Cambios de días:** pasan siempre por `applyChange()`. Así quedan registrados en el historial, en Firestore y en la cola de subida.
 - **Llamadas a Google:** usan `gcal()` dentro de `enqueue()`, para que vayan en orden y se vea el indicador de sincronización.
 - **Pantalla:** después de cambiar `S`, llama a `render()`; no modifiques el DOM a mano.
+- **Errores:** nunca un `catch` vacío. Usa `reportar('qué estabas haciendo', error)` de `js/adaptadores/errores.js`; si el error es esperado, déjalo explicado en un comentario. En el navegador, `officeTrackerErrores()` muestra los últimos 50.
 - **No cambies `TYPE_LBL`:** sus emojis son los títulos de los eventos en Calendar y `classify()` los lee de vuelta.
-- **Archivo nuevo en `js/`:** agrégalo en `index.html` en el lugar correcto del orden **y** en la lista `JS` de `sw.js` (si no, la app no abrirá sin internet).
-- **No hay compilación ni dependencias:** se edita y se publica tal cual.
+- **Archivo nuevo en `js/`:** impórtalo desde donde se use y agrégalo a la lista `JS` de `sw.js` (si no, la app no abrirá sin internet; la prueba de estructura lo avisa).
+- **Solo `app.js` ejecuta código al cargar.** Los demás módulos solo declaran funciones y constantes; si algo debe correr al arrancar, exporta una función `iniciar…()` y llámala desde `app.js`.
+- **No hay compilación ni dependencias** en la app: se edita y se publica tal cual.
 
-### 4.4 Probar en local
+### 4.5 Pruebas
+
+Se necesita **Node.js 22 o superior**. La primera vez, instala jsdom (solo para las pruebas):
+
+```bash
+cd tests
+npm install
+npm test
+```
+
+| Archivo | Qué garantiza | Cantidad |
+|---|---|---|
+| [equivalencia.test.mjs](tests/equivalencia.test.mjs) | **La app se comporta exactamente igual que la v15.** Cada escenario se ejecuta en las dos versiones con el mismo reloj, los mismos datos y el mismo Google/Firebase falsos, y después de cada paso compara: estado, `localStorage`, el HTML de cada tarjeta, **cada llamada a Google** (método, URL y cuerpo, en orden), cada escritura en Firestore y cada diálogo. | 37 escenarios + 18 aleatorios |
+| [reglas.test.mjs](tests/reglas.test.mjs) | Cada regla de negocio RN-01 a RN-30, con valores esperados escritos a mano (por ejemplo, los festivos oficiales de 2026 o el ejemplo del 26 de octubre). | 36 pruebas |
+| [paridad.test.mjs](tests/paridad.test.mjs) | Cada función del núcleo da el mismo resultado que la original de la v15 en miles de entradas: festivos 1900–2200, la meta de cada mes 2024–2028 con datos aleatorios, cada fecha 2020–2030, títulos de eventos, filas de la hoja. | 9 pruebas |
+| [robustez.test.mjs](tests/robustez.test.mjs) | El control de errores: datos guardados dañados, entradas inválidas, Firestore con datos raros o que rechaza escrituras, Google sin red, almacenamiento lleno, una tarjeta que falla. | 10 pruebas |
+| [estructura.test.mjs](tests/estructura.test.mjs) | Las reglas de arquitectura de la sección 4.1, la lista de `sw.js`, la versión y que no haya `catch` vacíos. | 9 pruebas |
+
+**Cómo funciona el entorno de pruebas** ([tests/entorno/](tests/entorno/)): la app corre en un navegador simulado (jsdom) con un reloj falso que solo avanza cuando la prueba lo pide, y con Google Calendar, Drive, Sheets, Google Identity Services y Firebase falsos que guardan sus datos en memoria y registran cada llamada. Así cada escenario es determinista y se puede repetir idéntico.
+
+**Si cambias el comportamiento a propósito** (una regla nueva, un texto distinto), la prueba de equivalencia de ese escenario va a fallar mostrando exactamente qué cambió. Revisa que el cambio sea el esperado y actualiza la prueba de la regla en `reglas.test.mjs`. La copia de referencia `tests/referencia-v15/` no se toca: representa cómo funcionaba la app antes de la reestructuración.
+
+### 4.6 Probar en local
 
 ```bash
 python -m http.server 8000
 ```
 
-Abre `http://localhost:8000`. Para probar Google Calendar en local, agrega `http://localhost:8000` en los *Orígenes de JavaScript autorizados* del Client ID. `localhost` ya viene autorizado en Firebase.
+Abre `http://localhost:8000`. Los módulos ES no funcionan abriendo el archivo directo (`file://`): hace falta un servidor. Para probar Google Calendar en local, agrega `http://localhost:8000` en los *Orígenes de JavaScript autorizados* del Client ID. `localhost` ya viene autorizado en Firebase.
 
 ---
 
@@ -381,7 +474,7 @@ Lo que se configuró (detalle en [docs/FIREBASE.md](docs/FIREBASE.md), fase A):
 
 | Configuración | Para qué |
 |---|---|
-| App web registrada → `FB_CONFIG` en [js/firebase.js](js/firebase.js) | Le dice al SDK a qué proyecto conectarse. |
+| App web registrada → `FB_CONFIG` en [js/adaptadores/firestore.js](js/adaptadores/firestore.js) | Le dice al SDK a qué proyecto conectarse. |
 | Authentication → proveedor **Google**; dominios autorizados `johansparra.github.io` y `localhost` | Permitir el login solo desde la app publicada y desde pruebas locales. |
 | Firestore (modo producción) con **reglas**: cada usuario solo lee y escribe en `users/{su uid}` | Que nadie más pueda ver ni cambiar tus datos. |
 
@@ -406,7 +499,7 @@ users/{uid}/
 
 | Dato | ¿Está en el repo? | ¿Es secreto? | Por qué |
 |---|---|---|---|
-| `FB_CONFIG` (incluye `apiKey` de Firebase) | **Sí**, en `js/firebase.js` | **No** | Identifica el proyecto, no da acceso. Toda app web de Firebase lo expone en el navegador. Lo que protege los datos son las **reglas de Firestore** y la **restricción de la API key** al dominio. |
+| `FB_CONFIG` (incluye `apiKey` de Firebase) | **Sí**, en `js/adaptadores/firestore.js` | **No** | Identifica el proyecto, no da acceso. Toda app web de Firebase lo expone en el navegador. Lo que protege los datos son las **reglas de Firestore** y la **restricción de la API key** al dominio. |
 | Client ID de OAuth | No (lo pegas en la app, queda en el dispositivo) | No | Es público por diseño; solo funciona desde los orígenes autorizados. |
 | Client secret / `client_secret_….json` | **No, nunca** | **Sí** | La app no lo usa. No lo subas al repositorio. |
 | Tokens de acceso | No (solo en el dispositivo, duran ~1 hora) | Sí | Los entrega Google al iniciar sesión. |
@@ -430,7 +523,7 @@ Para quitarle a la app el acceso a tu cuenta en cualquier momento: [myaccount.go
 3. Sube todos estos archivos y carpetas:
    - `index.html`
    - `css/` (con `styles.css`)
-   - `js/` (con sus 17 archivos)
+   - `js/` (con todas sus subcarpetas)
    - `manifest.json`
    - `sw.js`
    - `icon-192.png`
@@ -613,7 +706,7 @@ La app programa en el calendario Office Tracker dos avisos de lunes a viernes (*
 
 ### 🔄 Publicar actualizaciones
 
-Cada vez que subas cambios a GitHub Pages, abre `sw.js` y sube la versión (`const VERSION = 'v15'` → `'v16'`…), y pon el mismo valor en `APP_VER` dentro de `js/config.js` (sale en la columna *Versión app* del log). Si agregaste un archivo nuevo en `js/`, súmalo también en `index.html` y en la lista `JS` de `sw.js`. La app carga el HTML, el JS y el CSS desde la red primero, así que basta con cerrarla y abrirla para ver la versión nueva.
+Cada vez que subas cambios a GitHub Pages, abre `sw.js` y sube la versión (`const VERSION = 'v16'` → `'v17'`…), y pon el mismo valor en `APP_VER` dentro de `js/nucleo/constantes.js` (sale en la columna *Versión app* del log). Si agregaste un archivo nuevo en `js/`, súmalo también a la lista `JS` de `sw.js`. Antes de publicar, corre las pruebas (`cd tests && npm test`, ver sección 4.5). La app carga el HTML, el JS y el CSS desde la red primero, así que basta con cerrarla y abrirla para ver la versión nueva.
 
 ---
 
@@ -672,7 +765,7 @@ Un punto azul en la esquina de un día indica que ese cambio aún no se ha subid
 - Con el tiempo real activo, el chip de arriba dice **⚡ En vivo**.
 - Mientras la app habla con Google (subir un día, traer cambios, actualizar avisos, escribir en el log) aparece una **barra azul animada arriba de la pantalla**, el chip del encabezado gira con **Sincronizando** y la tarjeta de Google dice en qué paso va: *Buscando el calendario…*, *Sincronizando días…*, *Actualizando avisos…*, *Escribiendo en el log…*.
 - Al terminar, la tarjeta dice **Al día · HH:MM** con la hora de la última sincronización.
-- La **versión** de la app (`v15`, …) se ve arriba junto a *ScotiaTech · GBS* y al final de la página. Debe coincidir con la última publicada; si no, cierra y abre la app (en PC, **Ctrl+Shift+R**).
+- La **versión** de la app (`v16`, …) se ve arriba junto a *ScotiaTech · GBS* y al final de la página. Debe coincidir con la última publicada; si no, cierra y abre la app (en PC, **Ctrl+Shift+R**).
 - **Ver log**: en la tarjeta de historial, en el detalle de cada día y en la tarjeta de Google hay un enlace directo a la hoja de Google Sheets.
 
 ---

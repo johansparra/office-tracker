@@ -1,0 +1,12 @@
+{
+  "name": "office-tracker-tests",
+  "private": true,
+  "description": "Pruebas de Office Tracker. La app no tiene dependencias; jsdom solo se usa aquí para simular el navegador.",
+  "type": "module",
+  "scripts": {
+    "test": "node --experimental-vm-modules --no-warnings --test --test-concurrency=1 \"*.test.mjs\""
+  },
+  "devDependencies": {
+    "jsdom": "^24.1.3"
+  }
+}
