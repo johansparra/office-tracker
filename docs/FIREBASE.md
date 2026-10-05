@@ -182,7 +182,7 @@ users/{tu uid}/
 
 Lo implementado:
 
-1. **Cargar el SDK de Firebase** desde `https://www.gstatic.com/firebasejs/…` y pegar tu `firebaseConfig` en `index.html`.
+1. **Cargar el SDK de Firebase** desde `https://www.gstatic.com/firebasejs/…` y pegar tu `firebaseConfig` en `js/firebase.js` (`FB_CONFIG`).
 2. **Inicio de sesión:** botón *Entrar con Google* (Firebase Auth). La sesión queda guardada y **no vence cada hora**.
 3. **Escuchas en tiempo real** (`onSnapshot`) sobre `days`, `log` y `hidden`: cuando otro dispositivo cambia algo, la pantalla se actualiza **al instante**.
 4. **Modo sin conexión:** Firestore guarda una copia local; lo que marques sin internet se sube solo al volver.
@@ -323,7 +323,7 @@ Los valores exactos están en [firebase.google.com/pricing](https://firebase.goo
 
 - **Reglas de Firestore** (A5): solo tu usuario lee y escribe sus datos. **Nunca** publiques reglas con `allow read, write: if true`.
 - **API key** restringida a tu dominio (A6).
-- **Client secret y refresh tokens**: solo en Secret Manager y en el servidor. Nunca en `index.html`, nunca en GitHub.
+- **Client secret y refresh tokens**: solo en Secret Manager y en el servidor. Nunca en el código de la app (`index.html`, `js/`), nunca en GitHub.
 - **Permisos de Google:** siguen siendo los mínimos (`calendar.app.created`, `calendar.calendarlist.readonly`, `drive.file`). La fase C agrega acceso *offline*, pero no permisos nuevos.
 - Para revocar todo en cualquier momento: [myaccount.google.com/permissions](https://myaccount.google.com/permissions) → *Office Tracker* → **Quitar acceso**.
 

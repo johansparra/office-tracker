@@ -4,17 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-A single-page PWA (Spanish UI) that tracks office visits against a monthly quota, with automatic Colombian holidays, two-way sync to a dedicated Google Calendar, an append-only audit log in a Google Sheet, and optional real-time sync between devices through Firebase (Firestore). Deployed as static files on GitHub Pages; installed on Android via Chrome "Add to home screen". `README.md` is the user-facing spec (in Spanish) and `docs/FIREBASE.md` the step-by-step Firebase guide (phases A–C; A is implemented) — keep both in sync when behavior changes.
+A single-page PWA (Spanish UI) that tracks office visits against a monthly quota, with automatic Colombian holidays, two-way sync to a dedicated Google Calendar, an append-only audit log in a Google Sheet, and optional real-time sync between devices through Firebase (Firestore). Deployed as static files on GitHub Pages; installed on Android via Chrome "Add to home screen". `README.md` is the spec (in Spanish): business rules RN-01…RN-30 with code locations, Mermaid diagrams, what each repo file and external service (GitHub, Google Cloud, Firebase) is for and `docs/FIREBASE.md` the step-by-step Firebase guide (phases A–C; A is implemented) — keep both in sync when behavior changes.
 
 ## Development
 
-- No build step, package manager, linter, or test suite. All app code (HTML, CSS, JS) lives in `index.html`; `sw.js` is the service worker; `manifest.json` the PWA manifest.
+- No build step, package manager, linter, or test suite. `index.html` holds only the markup and the ordered `<script src>` list; styles are in `css/styles.css`; logic is split by responsibility into 17 classic (non-module) scripts in `js/` that share globals, so **load order matters** (each file may only use, at top level, what earlier files define). A new `js/` file must be added both to `index.html` and to the `JS` list in `sw.js`. `sw.js` is the service worker; `manifest.json` the PWA manifest. README §4 maps each file and "where do I change X".
 - Run locally with any static server from the repo root (e.g. `python -m http.server 8000`). Google sign-in only works from origins registered as "Authorized JavaScript origins" on the user's OAuth Client ID, so add `http://localhost:8000` there to test Calendar sync locally. Firebase sign-in also needs `localhost` in Authentication → Authorized domains (there by default).
-- **When publishing changes, bump `VERSION` in `sw.js` and `APP_VER` in `index.html` together** (`'v13'` → `'v14'`…). `APP_VER` is shown in the header/footer and written to the log. The SW fetches HTML network-first with `cache:'no-cache'` (GitHub Pages sends `max-age=600`); icons/manifest are cache-first; Google origins and non-GET requests bypass the SW entirely.
-- Code style in `index.html` is dense, compact one-liners with Spanish comments and `═══` section banners; match it.
+- **When publishing changes, bump `VERSION` in `sw.js` and `APP_VER` in `js/config.js` together** (`'v15'` → `'v16'`…). `APP_VER` is shown in the header/footer and written to the log. The SW fetches HTML, JS and CSS network-first with `cache:'no-cache'` (GitHub Pages sends `max-age=600`); icons/manifest are cache-first; Google origins and non-GET requests bypass the SW entirely.
+- Code style in `js/` and `css/` is dense, compact one-liners with Spanish comments and `═══` section banners; match it.
 - `graphify-out/` holds the knowledge graph of the app; `.graphifyignore` keeps `.claude/` skills out of it.
 
-## Architecture (`index.html` script)
+## Architecture (`js/` scripts, in load order: config, utilidades, festivos, meta, almacenamiento, auditoria, google-auth, google-calendar, google-sheets, firebase, sincronizacion, cambios, aviso, historial-dia, render, movimiento, app)
 
 **State**: one global object `S` holds everything — `data` (`{ 'YYYY-MM-DD': 'office'|'vacation' }`), `evIds` (day → Calendar event id), `pending` (days not yet pushed to Calendar), `log` (audit trail), `logOut`/`hidden`/`hideOut` (log entries deleted in the app), `rem`/`nonces`/`skip` (reminder events), `fs` (Firestore day state with timestamps), `sheetId`, `account`, `legacy` (v2 events to clean up), plus token/calendar ids. `save()`/`load()` persist to `localStorage` key `ot-data-v2` with schema `v:3`; `load()` migrates older shapes by marking all days pending and moving old event ids to `legacy`. Dates are always local-time `YYYY-MM-DD` keys via `toKey`/`fromKey`.
 

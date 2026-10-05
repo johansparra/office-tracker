@@ -1,20 +1,436 @@
 # 🏢 ScotiaTech Office Tracker — PWA
 
-Tracker de visitas a oficina con festivos colombianos automáticos, sincronización con Google Calendar entre todos tus dispositivos e historial permanente en Google Sheets.
+App web instalable (PWA) para llevar la cuenta de las visitas a la oficina contra una **meta mensual**, con festivos colombianos automáticos, sincronización con un calendario propio en Google Calendar, avisos diarios, historial de auditoría en Google Sheets y, opcionalmente, sincronización en tiempo real entre dispositivos con Firebase.
+
+No tiene servidor propio: son archivos estáticos publicados en GitHub Pages. Todo corre en el navegador del dispositivo, que habla directamente con las APIs de Google y Firebase.
+
+**App publicada:** `https://johansparra.github.io/office-tracker`
 
 ---
 
-## 📱 Instalación en Android (GitHub Pages)
+## Índice
 
-### Paso 1 — Subir a GitHub Pages
+1. [Reglas de negocio](#1-reglas-de-negocio)
+2. [Cómo funciona (diagramas)](#2-cómo-funciona-diagramas)
+3. [Archivos del repositorio](#3-archivos-del-repositorio)
+4. [Estructura del código y cómo modificarlo](#4-estructura-del-código-y-cómo-modificarlo)
+5. [Servicios externos: qué hace cada uno y por qué](#5-servicios-externos-qué-hace-cada-uno-y-por-qué)
+6. [Manual paso a paso: instalación, configuración y uso](#6-manual-paso-a-paso-instalación-configuración-y-uso)
+
+---
+
+## 1. Reglas de negocio
+
+Cada regla dice **dónde está en el código**, para cambiarla sin buscar.
+
+### 1.1 Meta mensual
+
+| # | Regla | Código |
+|---|---|---|
+| RN-01 | La meta base es **8 visitas al mes**. | `BASE` en [js/config.js](js/config.js) |
+| RN-02 | Las semanas van de **lunes a domingo**. Lo ideal son **2 visitas por semana**. | `weeks()` en [js/meta.js](js/meta.js) |
+| RN-03 | Una semana con **un festivo o un día libre/vacación** tiene cuota **1** en vez de 2. El festivo cuenta **cualquier día**, incluso sábado o domingo. | `stats()` → `hasAdj` |
+| RN-04 | **Meta ajustada = 8 − número de semanas con festivo o día libre** (nunca menos de 0). | `stats()` → `target` |
+| RN-05 | **Semanas que cruzan de mes:** se muestran completas, pero solo cuentan los días del mes visible (visitas, festivos y días libres). Ningún día suma en dos meses. | `stats()` → `inMonth` |
+| RN-06 | Una **visita** es un día marcado como 🏢 Oficina, incluido un festivo entre semana. Las visitas por encima de la meta cuentan como extra. | `stats()` → `visited` |
+
+**Ejemplo:** octubre 2026 tiene el festivo del lunes 12 (Día de la Raza). Esa semana tiene cuota 1 → meta = 8 − 1 = **7**.
+
+### 1.2 Alertas: margen y días obligatorios
+
+| # | Regla | Código |
+|---|---|---|
+| RN-07 | **Días hábiles libres** = días de lunes a viernes, **desde hoy** hasta fin de mes, que no son festivo y aún no están marcados. | `stats()` → `open` |
+| RN-08 | **Margen = días hábiles libres − visitas que faltan.** Lo que manda es la meta del mes, no las 2 por semana. | `stats()` → `slack` |
+| RN-09 | Según el margen, la tarjeta del mes muestra: | `render()` en [js/render.js](js/render.js) |
+
+| Situación | Mensaje |
+|---|---|
+| Meta cumplida | ✅ *Meta cumplida* (y cuántas de más) |
+| Margen mayor que 2 | ✅ *Vas bien* y el margen |
+| Margen 1 o 2 | ⚠️ *Poco margen: solo puedes faltar N* |
+| Margen 0 | 🚨 **Tienes que ir sí o sí** y la lista de días |
+| Margen negativo | 🚨 **No alcanzas la meta** y los días que aún puedes ir |
+| Mes que ya pasó | *El mes cerró con X de Y visitas* |
+
+| # | Regla | Código |
+|---|---|---|
+| RN-10 | Con margen 0 o negativo, **todos los días hábiles libres son obligatorios**: se marcan con borde rojo punteado (leyenda *Obligatorio*) y su aviso de las 10:00 cambia a **"⚠️ Hoy tienes que ir a la oficina"**. Si el día deja de ser obligatorio, el aviso vuelve a su texto normal. | `stats()` → `must`, `reminderTitle()` en [js/google-calendar.js](js/google-calendar.js) |
+
+### 1.3 Marcar días
+
+| # | Regla | Código |
+|---|---|---|
+| RN-11 | Cada toque avanza el estado del día según su tipo: | `toggle()` en [js/cambios.js](js/cambios.js) |
+
+| Tipo de día | Ciclo de toques |
+|---|---|
+| Día hábil | vacío → 🏢 Oficina → 🏖️ Día libre → vacío |
+| Festivo entre semana | vacío → 🏢 Oficina → vacío |
+| Sábado o domingo | vacío → 🏖️ Día libre (cuenta como festivo de esa semana) → vacío |
+
+| # | Regla | Código |
+|---|---|---|
+| RN-12 | Cada cambio se ve al instante, pero espera **5 segundos** con un botón **Deshacer** antes de subirse a Google. Si sales de la app antes, se sube de inmediato. | `UNDO_MS`, `applyChange()`, `schedulePush()`, `flushPushes()` |
+| RN-13 | La app funciona **sin cuenta de Google**: los datos quedan en el dispositivo (`localStorage`). Google y Firebase son opcionales. | [js/almacenamiento.js](js/almacenamiento.js) |
+
+### 1.4 Festivos de Colombia
+
+| # | Regla | Código |
+|---|---|---|
+| RN-14 | Los festivos se calculan solos para cualquier año: no hay que marcarlos. | `holidays()` en [js/festivos.js](js/festivos.js) |
+
+| Tipo | Festivos | Cálculo |
+|---|---|---|
+| Fijos | Año Nuevo, Día del Trabajo, Independencia, Batalla de Boyacá, Inmaculada Concepción, Navidad | Fecha fija |
+| Ley Emiliani | Reyes Magos, San José, San Pedro y San Pablo, Asunción, Día de la Raza, Todos los Santos, Independencia de Cartagena | Se mueven al lunes siguiente |
+| Semana Santa | Jueves Santo, Viernes Santo, Ascensión, Corpus Christi, Sagrado Corazón | Relativos a la Pascua (los tres últimos, al lunes) |
+
+### 1.5 Avisos diarios
+
+| # | Regla | Código |
+|---|---|---|
+| RN-15 | Hay dos avisos por día: **10:00 a. m.** "¿Vas a la oficina hoy?" y **4:30 p. m.** "¿Fuiste a la oficina hoy?", hora de Bogotá. | `SLOTS` en [js/config.js](js/config.js) |
+| RN-16 | Solo de **lunes a viernes**, sin festivos, en días **sin marcar**, y solo para horas que aún no pasaron. Se programan **21 días** hacia adelante. | `desiredSlots()`, `HORIZON` |
+| RN-17 | Al marcar un día se borran sus avisos pendientes (si confirmas a las 11, no suena el de las 4:30). | `syncRemindersForDate()` |
+| RN-18 | Cada aviso trae un enlace con un **código único**. Al abrirlo, la app verifica que el código corresponda a ese día: **Aviso ✓** (verificado), **Aviso ⚠** (no coincide) o **Aviso ?** (no se pudo verificar). | `verifyNonce()` en [js/aviso.js](js/aviso.js) |
+| RN-19 | Desde el aviso se puede responder **Fui a la oficina**, **Día libre** u **Hoy no fui**. *Hoy no fui* no cambia el día, pero cancela el aviso que quede ese día y queda registrado. | `openNotifSheet()` |
+
+### 1.6 Sincronización y conflictos
+
+| # | Regla | Código |
+|---|---|---|
+| RN-20 | Hay **un solo calendario "Office Tracker" por cuenta de Google**. Si aparecen varios (dos dispositivos conectándose a la vez), todos eligen el de id menor, le copian los días de los otros y borran los sobrantes. **Nunca** se crea uno nuevo sin haber podido buscar antes. | `ensureCalendar()`, `mergeCalendar()` |
+| RN-21 | Un evento de día completo del calendario Office Tracker con 🏢, "oficina" u "office" en el título es **Oficina**; con 🏖️, "libre" o "vacaciones" es **Día libre**. Cualquier otro evento de día en ese calendario cuenta como Oficina. | `classify()` |
+| RN-22 | **Sin Firebase:** si un día tiene un cambio local aún sin subir (punto azul), **gana el dispositivo**. Si no, **gana Google Calendar**. | `reconcileMonth()` |
+| RN-23 | **Con Firebase:** Firestore es la fuente de verdad. Cada día guarda la hora de su último cambio y **gana el cambio más reciente**. Una edición hecha directamente en Google Calendar solo se importa si es **posterior** al último cambio en Firestore; si no, se corrige Calendar. | `onFsDays()`, `reconcileMonthFS()` en [js/firebase.js](js/firebase.js) |
+| RN-24 | Al unirse a un calendario existente (segundo dispositivo), gana lo que ya está en Google; solo se suben los días que Google no tiene. Lo mismo con Firestore la primera vez. | `ensureCalendar()`, `onFsDays()` |
+| RN-25 | Si un día tiene varios eventos, se deja uno y se borran los duplicados. | `reconcileMonth()` |
+
+### 1.7 Historial y auditoría
+
+| # | Regla | Código |
+|---|---|---|
+| RN-26 | **Todo cambio queda registrado** con: id único, fecha y hora exacta, día, estado anterior y nuevo, **origen** (Manual, Aviso ✓/⚠/?, Calendar, Deshecho) y dispositivo. | `logChange()` en [js/auditoria.js](js/auditoria.js) |
+| RN-27 | La hoja **"Office Tracker · Historial"** es **solo de agregar** (*append-only*): la app nunca borra ni modifica filas. | `syncSheet()` en [js/google-sheets.js](js/google-sheets.js) |
+| RN-28 | Borrar un registro en la app solo lo **oculta** (en todos los dispositivos, vía pestaña *Ocultos* y Firestore). Si aún no había llegado a la hoja, se sube igual. Borrar registros **no cambia** los días marcados. | `deleteLog()` |
+| RN-29 | Un cambio que llega por Calendar y que ya está explicado por un registro de otro dispositivo **no se registra dos veces**. Solo las ediciones hechas directamente en Google Calendar quedan como origen *Calendar*. | `explained()` |
+| RN-30 | El historial de la app guarda hasta **1000 registros**. Los últimos **10** de cada día se escriben también en la descripción del evento en Google Calendar. | `logChange()`, `dayBody()` |
+
+---
+
+## 2. Cómo funciona (diagramas)
+
+### 2.1 Piezas y cómo se conectan
+
+```mermaid
+flowchart LR
+  subgraph DEV["📱 Dispositivo (Chrome / app instalada)"]
+    APP["Office Tracker<br/>index.html + js/ + css/"]
+    LS[("localStorage<br/>copia local de todo")]
+    SW["sw.js<br/>caché para abrir sin internet"]
+    APP --- LS
+  end
+
+  GH["GitHub Pages<br/>publica los archivos"] -->|"descarga la app"| SW
+  SW --> APP
+
+  subgraph GOOGLE["☁️ Google (tu cuenta)"]
+    GIS["Google Identity Services<br/>inicio de sesión OAuth"]
+    CAL["Google Calendar<br/>calendario «Office Tracker»"]
+    SH["Google Sheets<br/>hoja «Office Tracker · Historial»"]
+    DR["Google Drive<br/>carpeta office-tracker"]
+  end
+
+  subgraph FB["🔥 Firebase (opcional)"]
+    FA["Authentication"]
+    FS[("Firestore<br/>users/{uid}/days, log, hidden")]
+  end
+
+  APP -->|"1 · pide permiso con el Client ID"| GIS
+  APP -->|"2 · días y avisos"| CAL
+  APP -->|"3 · log de auditoría"| SH
+  APP -->|"busca o crea la hoja"| DR
+  APP -->|"entrar con Google"| FA
+  APP <-->|"cambios al instante"| FS
+```
+
+### 2.2 Cálculo de la meta y la alerta del mes
+
+```mermaid
+flowchart TD
+  A["Mes visible"] --> B["Partir en semanas lunes–domingo"]
+  B --> C{"¿La semana tiene festivo o<br/>día libre dentro del mes?"}
+  C -->|Sí| D["Cuota 1"]
+  C -->|No| E["Cuota 2"]
+  D --> F["Meta = 8 − semanas con cuota 1"]
+  E --> F
+  F --> G["Faltan = meta − visitas del mes"]
+  G --> H["Libres = lun–vie desde hoy,<br/>sin festivo y sin marcar"]
+  H --> I["Margen = libres − faltan"]
+  I --> J{"¿Margen?"}
+  J -->|"Meta cumplida"| K["✅ Meta cumplida"]
+  J -->|"> 2"| L["✅ Vas bien"]
+  J -->|"1 o 2"| M["⚠️ Poco margen"]
+  J -->|"0"| N["🚨 Sí o sí: todos los libres son obligatorios"]
+  J -->|"< 0"| O["🚨 No alcanzas"]
+  N --> P["Borde punteado en esos días +<br/>aviso 10:00 «Hoy tienes que ir»"]
+  O --> P
+```
+
+### 2.3 Qué pasa cuando tocas un día
+
+```mermaid
+sequenceDiagram
+  actor U as Usuario
+  participant A as App (cambios.js)
+  participant L as localStorage
+  participant F as Firestore
+  participant G as Google Calendar
+  participant H as Hoja del log
+
+  U->>A: toca un día
+  A->>A: toggle() calcula el estado siguiente (RN-11)
+  A->>L: guarda el día y el registro del historial
+  A->>F: escribe el día y el registro (si hay tiempo real)
+  F-->>F: avisa al instante a los otros dispositivos
+  A->>U: pinta el día y muestra «Deshacer» (5 s)
+  alt toca Deshacer
+    U->>A: Deshacer
+    A->>L: vuelve al estado anterior (registro «Deshecho»)
+  end
+  Note over A: pasados 5 s (o al salir de la app)
+  A->>G: crea, actualiza o borra el evento del día
+  A->>G: borra los avisos pendientes de ese día
+  A->>H: agrega la fila al log
+```
+
+### 2.4 Sincronización completa con Google
+
+Corre al abrir la app, al volver a ella, al recuperar internet, cada 5 minutos y cuando la detección de cambios ve algo nuevo (cada 10 s sin Firebase, cada 60 s con Firebase). Todo pasa por una **cola** (`enqueue()`), así nunca hay dos sincronizaciones a la vez.
+
+```mermaid
+flowchart TD
+  S(["syncAll()"]) --> T{"¿Sesión de Google<br/>vigente?"}
+  T -->|No| X["«Sesión vencida» → Reconectar<br/>(lo marcado queda guardado)"]
+  T -->|Sí| C["ensureCalendar()<br/>buscar o crear el calendario; unir duplicados"]
+  C --> FB{"¿Tiempo real<br/>(Firebase) activo?"}
+  FB -->|No| P["pullSheet()<br/>leer registros nuevos de la hoja"]
+  P --> R1["reconcileMonth()<br/>pendiente local gana; si no, Calendar"]
+  FB -->|Sí| R2["reconcileMonthFS()<br/>gana el cambio más reciente"]
+  R1 --> AV["reconcileReminders()<br/>crear, corregir o borrar avisos (21 días)"]
+  R2 --> AV
+  AV --> SH["syncSheet() + pushHidden()<br/>agregar filas al log y ocultos"]
+  SH --> OK(["Al día · HH:MM"])
+```
+
+### 2.5 Quién gana cuando hay diferencias
+
+```mermaid
+flowchart TD
+  D["Un día distinto entre el dispositivo y Google Calendar"] --> FB{"¿Tiempo real activo?"}
+  FB -->|No| P{"¿Cambio local<br/>sin subir?"}
+  P -->|Sí| W1["Gana el dispositivo → se sube a Calendar"]
+  P -->|No| W2["Gana Calendar → se registra como origen «Calendar»"]
+  FB -->|Sí| U{"¿El evento se editó en Calendar<br/>después del último cambio en Firestore?"}
+  U -->|Sí| W3["Se importa de Calendar y se escribe en Firestore"]
+  U -->|No| W4["Gana Firestore → se corrige Calendar"]
+```
+
+---
+
+## 3. Archivos del repositorio
+
+### Archivos de la app (los que publica GitHub Pages)
+
+| Archivo | Qué es | Por qué existe |
+|---|---|---|
+| [index.html](index.html) | La estructura de la pantalla (encabezado, tarjetas, calendario, hojas inferiores) y la lista de scripts en orden de carga. | Es la página que abre el navegador. No tiene lógica: solo HTML. |
+| [css/styles.css](css/styles.css) | Todos los estilos: colores (variables en `:root`), tarjetas, calendario, animaciones. | Separar el diseño del código. |
+| [js/](js/) | La lógica de la app, en 17 archivos por responsabilidad (ver [sección 4](#4-estructura-del-código-y-cómo-modificarlo)). | Para encontrar y cambiar cada cosa sin leer todo. |
+| [sw.js](sw.js) | *Service worker*: guarda la app en caché para que abra sin internet y siempre trae la última versión publicada cuando hay red. | Requisito para que Chrome trate la web como app instalable y funcione offline. |
+| [manifest.json](manifest.json) | *Manifiesto PWA*: nombre, ícono, colores y modo pantalla completa (`standalone`). | Chrome lo exige para ofrecer **Instalar / Agregar a pantalla de inicio**. |
+| `icon-192.png`, `icon-512.png` | Íconos de la app. | Los usa el manifiesto (pantalla de inicio, splash). |
+
+### Documentación
+
+| Archivo | Qué es |
+|---|---|
+| [README.md](README.md) | Este documento: reglas de negocio, arquitectura, configuración y uso. |
+| [docs/FIREBASE.md](docs/FIREBASE.md) | Guía paso a paso de Firebase en tres fases: A (tiempo real, **implementada**), B (notificaciones push con la app cerrada) y C (cambios en Google Calendar al instante). |
+
+### Archivos de herramientas de desarrollo (no son parte de la app)
+
+| Archivo | Qué es | ¿Afecta la app? |
+|---|---|---|
+| [CLAUDE.md](CLAUDE.md) | Instrucciones para **Claude Code** (el asistente de IA usado para desarrollar): cómo está armado el código y qué convenciones seguir. | No. Solo lo lee el asistente. |
+| `.claude/skills/`, `skills-lock.json` | *Skills* de Claude Code: guías de diseño y animación que el asistente consulta al trabajar en la interfaz. | No. La app nunca los carga. |
+| `graphify-out/` | Grafo de conocimiento del código generado por la herramienta **graphify** (`graph.html` se abre en el navegador; `GRAPH_REPORT.md` resume la arquitectura). Sirve para navegar el código y responder preguntas sobre él. | No. Se regenera con `/graphify` en Claude Code cuando cambia la estructura. |
+| `.graphifyignore` | Le dice a graphify que ignore `.claude/` y `skills-lock.json`. | No. |
+
+> GitHub Pages publica todo el repositorio, incluidos estos archivos. No pasa nada: no tienen datos sensibles y el navegador solo carga lo que pide `index.html`.
+
+---
+
+## 4. Estructura del código y cómo modificarlo
+
+### 4.1 Los archivos de `js/`
+
+Son **scripts normales** (no módulos) que comparten variables globales. **El orden de carga importa**: cada archivo puede usar lo definido en los anteriores. El orden está en `index.html` y es este:
+
+| # | Archivo | Responsabilidad | Funciones principales |
+|---|---|---|---|
+| 1 | [config.js](js/config.js) | Constantes de negocio y configuración, íconos y el **estado global `S`**. | `BASE`, `UNDO_MS`, `HORIZON`, `SLOTS`, `SCOPES`, `APP_VER`, `TYPE_LBL`, `IC`, `S` |
+| 2 | [utilidades.js](js/utilidades.js) | Fechas y formato. Las fechas siempre son claves `AAAA-MM-DD` en hora local. | `toKey`, `fromKey`, `addD`, `monday`, `isWeekend`, `fmtDay` |
+| 3 | [festivos.js](js/festivos.js) | Festivos de Colombia (RN-14). | `easter`, `holidays`, `getHol` |
+| 4 | [meta.js](js/meta.js) | **Meta, cuotas, margen y días obligatorios** (RN-01 a RN-10). | `weeks`, `stats` |
+| 5 | [almacenamiento.js](js/almacenamiento.js) | Guardar y leer `localStorage`; migración de versiones viejas; sesión de Google. | `save`, `load`, `setToken`, `hasToken` |
+| 6 | [auditoria.js](js/auditoria.js) | Registro del historial y textos del origen (RN-26). | `logChange`, `srcBadge`, `srcText` |
+| 7 | [google-auth.js](js/google-auth.js) | Inicio de sesión con Google (OAuth), conectar y desconectar. | `initGIS`, `connect`, `disconnect`, `resetConnection` |
+| 8 | [google-calendar.js](js/google-calendar.js) | Llamadas a Google (`gcal`), calendario propio, eventos de día, reconciliación sin Firebase y avisos. | `gcal`, `ensureCalendar`, `classify`, `pushDay`, `reconcileMonth`, `reconcileReminders` |
+| 9 | [google-sheets.js](js/google-sheets.js) | Hoja de historial en Drive: crearla, repararla, escribir y leer filas, ocultos. | `ensureSheet`, `LOG_COLS`, `logRow`, `syncSheet`, `pullSheet`, `deleteLog` |
+| 10 | [firebase.js](js/firebase.js) | Tiempo real: configuración, login, escrituras y escuchas de Firestore, reconciliación con Firebase. | `FB_CONFIG`, `fbInit`, `fsDay`, `onFsDays`, `reconcileMonthFS` |
+| 11 | [sincronizacion.js](js/sincronizacion.js) | Cola de trabajos, sincronización completa y **cuándo** sincronizar (detección de cambios, intervalos, al volver a la app). | `enqueue`, `syncAll`, `checkChanges` |
+| 12 | [cambios.js](js/cambios.js) | Marcar un día, deshacer y programar la subida (RN-11, RN-12). | `toggle`, `applyChange`, `schedulePush`, `doUndo` |
+| 13 | [aviso.js](js/aviso.js) | Enlace desde el aviso de Calendar (`?d=…&r=…&n=…`) y su verificación (RN-18, RN-19). | `readDeepLink`, `verifyNonce`, `openNotifSheet` |
+| 14 | [historial-dia.js](js/historial-dia.js) | Hoja con el historial de un día (mantener presionado). | `openDaySheet` |
+| 15 | [render.js](js/render.js) | Dibuja **toda** la pantalla desde `S` con plantillas HTML. | `render` |
+| 16 | [movimiento.js](js/movimiento.js) | Animaciones (solo `transform`/`opacity`; se apagan si el sistema pide menos movimiento) y abrir/cerrar hojas. | `anim`, `afterRender`, `popDay`, `showOv`, `hideOv` |
+| 17 | [app.js](js/app.js) | Navegación entre meses, botones fijos y **arranque** de la app. | `goMonth`, INIT |
+
+### 4.2 ¿Dónde cambio…?
+
+| Quiero cambiar… | Archivo | Qué tocar |
+|---|---|---|
+| La meta base (8) o el tiempo de deshacer | `js/config.js` | `BASE`, `UNDO_MS` |
+| Cómo se calcula la cuota o la meta | `js/meta.js` | `stats()` |
+| Umbrales de los mensajes (por ejemplo "poco margen" con 2) | `js/render.js` | bloque *Resumen del mes* (`s.slack>2`) |
+| Agregar o corregir un festivo | `js/festivos.js` | `holidays()` |
+| Horas o textos de los avisos, o los días hacia adelante | `js/config.js` | `SLOTS`, `HORIZON` |
+| Textos o partes de la pantalla | `js/render.js` (y `index.html` para lo fijo) | `render()` |
+| Colores, tamaños, tipografía | `css/styles.css` | variables de `:root` |
+| Columnas del log en la hoja | `js/google-sheets.js` | `LOG_COLS` y `logRow()`; agrega columnas **solo al final** para no romper las filas existentes |
+| Cada cuánto se revisan cambios | `js/sincronizacion.js` | `WATCH_MS`, `WATCH_FB_MS`, `FULL_MS` |
+
+### 4.3 Convenciones para agregar lógica
+
+- **Estado:** todo vive en el objeto global `S` (`js/config.js`). Si agregas un dato que debe sobrevivir al cerrar la app, súmalo en `save()` y `load()` (`js/almacenamiento.js`).
+- **Cambios de días:** pasan siempre por `applyChange()`. Así quedan registrados en el historial, en Firestore y en la cola de subida.
+- **Llamadas a Google:** usan `gcal()` dentro de `enqueue()`, para que vayan en orden y se vea el indicador de sincronización.
+- **Pantalla:** después de cambiar `S`, llama a `render()`; no modifiques el DOM a mano.
+- **No cambies `TYPE_LBL`:** sus emojis son los títulos de los eventos en Calendar y `classify()` los lee de vuelta.
+- **Archivo nuevo en `js/`:** agrégalo en `index.html` en el lugar correcto del orden **y** en la lista `JS` de `sw.js` (si no, la app no abrirá sin internet).
+- **No hay compilación ni dependencias:** se edita y se publica tal cual.
+
+### 4.4 Probar en local
+
+```bash
+python -m http.server 8000
+```
+
+Abre `http://localhost:8000`. Para probar Google Calendar en local, agrega `http://localhost:8000` en los *Orígenes de JavaScript autorizados* del Client ID. `localhost` ya viene autorizado en Firebase.
+
+---
+
+## 5. Servicios externos: qué hace cada uno y por qué
+
+### 5.1 GitHub
+
+| | |
+|---|---|
+| **Qué hace** | Guarda el código con su historial de versiones (git) y lo **publica** con **GitHub Pages** en `https://johansparra.github.io/office-tracker`. |
+| **Por qué** | Hosting gratuito de archivos estáticos con **HTTPS**. HTTPS es obligatorio para que funcionen el service worker (instalar la app, modo offline) y el inicio de sesión de Google. |
+| **Cómo se usa** | Cada `git push` a la rama `main` vuelve a publicar la app en ~1 minuto. |
+| **Qué se configuró** | Repositorio público `office-tracker` → **Settings → Pages** → *Deploy from branch* → `main` / `(root)`. |
+
+### 5.2 Google Cloud Console
+
+| | |
+|---|---|
+| **Qué hace** | Registra la app ante Google para que pueda pedirte permiso y usar tus datos de Calendar, Sheets y Drive. |
+| **Por qué** | Google exige que toda app que accede a datos de un usuario tenga un **proyecto** y un **Client ID de OAuth**. El Client ID identifica la app en la ventana de permisos, y los *orígenes autorizados* impiden que otro sitio lo use. |
+| **Cómo se usa** | Pegas el Client ID en la app (queda en el dispositivo, **no** en el repositorio). Al tocar **Conectar**, Google Identity Services abre la ventana de permisos y devuelve un *token de acceso* que dura ~1 hora. Con ese token la app llama directamente a las APIs desde el navegador; no hay servidor de por medio. |
+
+Lo que se configuró en el proyecto (los pasos están en la [sección 6](#6-manual-paso-a-paso-instalación-configuración-y-uso), *Sincronización con Google*):
+
+| Configuración | Para qué |
+|---|---|
+| **APIs habilitadas:** Google Calendar API, Google Sheets API, Google Drive API | Sin habilitarlas, Google rechaza las llamadas. Calendar: días y avisos. Sheets: escribir el log. Drive: crear la carpeta y encontrar la hoja. |
+| **Pantalla de consentimiento** (Google Auth Platform): tipo *Externo*, modo *Prueba*, tu correo como *usuario de prueba* | Lo que ves al dar permiso. En modo prueba no hay que verificar la app con Google, pero solo entran los usuarios de prueba. |
+| **Permisos (scopes)** | Los mínimos posibles (tabla abajo). |
+| **Client ID de OAuth** tipo *Aplicación web*, origen `https://johansparra.github.io` | La identidad de la app. Solo funciona desde los orígenes listados. |
+| **API key** *Browser key (auto created by Firebase)*, restringida a `johansparra.github.io` y al dominio de Firebase | La crea Firebase; la restricción evita que se use desde otros sitios. |
+
+| Permiso | Para qué | Qué **no** permite |
+|---|---|---|
+| `calendar.app.created` | Crear el calendario Office Tracker y manejar sus eventos. | Ver o tocar tus otros calendarios. |
+| `calendar.calendarlist.readonly` | Ver la lista de calendarios (solo nombres) para encontrar el Office Tracker que ya existe y no duplicarlo. | Leer eventos de otros calendarios. |
+| `drive.file` | Crear la carpeta `office-tracker` y la hoja del historial. | Ver el resto de tu Drive. |
+| `calendar.events` (solo una vez, opcional) | Borrar eventos viejos que dejó la versión 2 en tu calendario principal. | Solo se pide si tocas ese botón. |
+
+### 5.3 Firebase (opcional, recomendado)
+
+| | |
+|---|---|
+| **Qué hace** | **Authentication** (entrar con Google) y **Firestore** (base de datos en la nube que avisa al instante a todos los dispositivos conectados). |
+| **Por qué** | Sin Firebase, cada dispositivo **pregunta** a Google cada 10 segundos si algo cambió, y la sesión vence cada hora. Con Firestore los cambios llegan en **menos de 1 segundo**, funciona sin internet (se sube al volver) y la sesión **no vence**. Usa el plan gratuito *Spark*. |
+| **Cómo se usa** | En la tarjeta de Google: **⚡ Activar tiempo real**. La app escucha (`onSnapshot`) tus colecciones y escribe cada cambio. Google Calendar y la hoja pasan a ser **copias** (para los avisos y la auditoría). |
+| **Proyecto** | `office-tracker-510522`, agregado al mismo proyecto de Google Cloud. |
+
+Lo que se configuró (detalle en [docs/FIREBASE.md](docs/FIREBASE.md), fase A):
+
+| Configuración | Para qué |
+|---|---|
+| App web registrada → `FB_CONFIG` en [js/firebase.js](js/firebase.js) | Le dice al SDK a qué proyecto conectarse. |
+| Authentication → proveedor **Google**; dominios autorizados `johansparra.github.io` y `localhost` | Permitir el login solo desde la app publicada y desde pruebas locales. |
+| Firestore (modo producción) con **reglas**: cada usuario solo lee y escribe en `users/{su uid}` | Que nadie más pueda ver ni cambiar tus datos. |
+
+Datos que guarda Firestore:
+
+```
+users/{uid}/
+├── days/{AAAA-MM-DD}   { type: "office" | "vacation" | null, ts, dev }   ← null = vacío; nunca se borra, gana el ts mayor
+├── log/{id}            el registro del historial
+└── hidden/{id}         registros borrados (ocultos) en la app
+```
+
+### 5.4 Google Calendar, Sheets y Drive (tus datos)
+
+| Servicio | Qué guarda la app | Por qué ahí |
+|---|---|---|
+| **Google Calendar** – calendario secundario *Office Tracker* | Un evento de día completo por día marcado (🏢 / 🏖️, con su historial en la descripción) y los avisos de las 10:00 y 4:30. | Los avisos llegan como notificaciones de Google Calendar **aunque la app esté cerrada**, y puedes ver o editar tus días desde cualquier lado. Tu calendario principal no se toca. |
+| **Google Sheets** – *Office Tracker · Historial* | Una fila por cada cambio (log de auditoría, solo de agregar) y la pestaña *Ocultos*. | Registro permanente, filtrable y fácil de revisar o compartir. |
+| **Google Drive** – carpeta `Mi unidad/office-tracker/` | Contiene la hoja. | Ordenar lo que crea la app; con `drive.file` la app solo ve sus propios archivos. |
+
+### 5.5 ¿Por qué hay configuración de Google y Firebase en el repositorio? ¿Es seguro?
+
+| Dato | ¿Está en el repo? | ¿Es secreto? | Por qué |
+|---|---|---|---|
+| `FB_CONFIG` (incluye `apiKey` de Firebase) | **Sí**, en `js/firebase.js` | **No** | Identifica el proyecto, no da acceso. Toda app web de Firebase lo expone en el navegador. Lo que protege los datos son las **reglas de Firestore** y la **restricción de la API key** al dominio. |
+| Client ID de OAuth | No (lo pegas en la app, queda en el dispositivo) | No | Es público por diseño; solo funciona desde los orígenes autorizados. |
+| Client secret / `client_secret_….json` | **No, nunca** | **Sí** | La app no lo usa. No lo subas al repositorio. |
+| Tokens de acceso | No (solo en el dispositivo, duran ~1 hora) | Sí | Los entrega Google al iniciar sesión. |
+
+Para quitarle a la app el acceso a tu cuenta en cualquier momento: [myaccount.google.com/permissions](https://myaccount.google.com/permissions) → *Office Tracker* → **Quitar acceso**.
+
+---
+
+## 6. Manual paso a paso: instalación, configuración y uso
+
+> Este es el manual completo de la versión anterior del README, sin recortes. Las reglas de negocio de la [sección 1](#1-reglas-de-negocio) resumen lo mismo con la ubicación en el código.
+### 📱 Instalación en Android (GitHub Pages)
+
+#### Paso 1 — Subir a GitHub Pages
 
 1. Ve a **github.com** y crea una cuenta (si no tienes) o inicia sesión
 2. Clic en **"New repository"**
    - Nombre: `office-tracker`
    - Visibilidad: **Public**
    - Clic en **"Create repository"**
-3. Sube todos estos archivos:
+3. Sube todos estos archivos y carpetas:
    - `index.html`
+   - `css/` (con `styles.css`)
+   - `js/` (con sus 17 archivos)
    - `manifest.json`
    - `sw.js`
    - `icon-192.png`
@@ -24,7 +440,7 @@ Tracker de visitas a oficina con festivos colombianos automáticos, sincronizaci
 6. Espera ~2 minutos. Tu URL será:  
    `https://TU-USUARIO.github.io/office-tracker`
 
-### Paso 2 — Instalar en Android
+#### Paso 2 — Instalar en Android
 
 1. Abre la URL en **Chrome para Android**
 2. Chrome mostrará un banner **"Agregar a pantalla de inicio"** — toca "Instalar"
@@ -33,7 +449,7 @@ Tracker de visitas a oficina con festivos colombianos automáticos, sincronizaci
 
 ---
 
-## 🔗 Sincronización con Google (opcional)
+### 🔗 Sincronización con Google (opcional)
 
 Al conectar tu cuenta de Google, la app:
 
@@ -43,7 +459,7 @@ Al conectar tu cuenta de Google, la app:
 
 Todo corre en tu navegador; no hay servidor de por medio. Solo necesitas un **Client ID** de Google Cloud (se crea una sola vez).
 
-### 1. Crear el proyecto y activar las APIs
+#### 1. Crear el proyecto y activar las APIs
 
 1. Entra a [console.cloud.google.com](https://console.cloud.google.com) con la misma cuenta de Google que vas a conectar.
 2. Arriba, en el selector de proyectos → **Proyecto nuevo** → nombre (por ejemplo `office-tracker`) → **Crear**. Verifica que quede seleccionado.
@@ -54,7 +470,7 @@ Todo corre en tu navegador; no hay servidor de por medio. Solo necesitas un **Cl
 
 > Si falta alguna, la app lo dice en la tarjeta de Google: *«La Google … API no está activada en tu proyecto de Google Cloud»*.
 
-### 2. Configurar la pantalla de consentimiento (Google Auth Platform)
+#### 2. Configurar la pantalla de consentimiento (Google Auth Platform)
 
 Menú ☰ → **APIs y servicios → Pantalla de consentimiento de OAuth**. En la consola nueva se llama **Google Auth Platform**.
 
@@ -71,7 +487,7 @@ Menú ☰ → **APIs y servicios → Pantalla de consentimiento de OAuth**. En l
 | `https://www.googleapis.com/auth/calendar.calendarlist.readonly` | Ver la lista de tus calendarios, solo los nombres. Así cada dispositivo encuentra el Office Tracker que ya existe en vez de crear otro. |
 | `https://www.googleapis.com/auth/drive.file` | Crear la carpeta `office-tracker` y la hoja del historial. **Solo** ve archivos que creó esta app, no el resto de tu Drive. |
 
-### 3. Crear el Client ID
+#### 3. Crear el Client ID
 
 1. **Google Auth Platform → Clientes** (o **APIs y servicios → Credenciales → + Crear credenciales → ID de cliente de OAuth**).
 2. Tipo de aplicación: **Aplicación web**. Nombre: `Office Tracker`.
@@ -81,7 +497,7 @@ Menú ☰ → **APIs y servicios → Pantalla de consentimiento de OAuth**. En l
 
 > La app **solo** usa el Client ID. El *secreto del cliente* y el archivo `client_secret_….json` que Google ofrece descargar **no se usan**: no los pegues en la app ni los subas al repositorio.
 
-### 4. Conectar en la app
+#### 4. Conectar en la app
 
 1. Abre la app. La tarjeta **Google Calendar** está arriba del todo → **Conectar**.
 2. Pega el Client ID → **Guardar y conectar**.
@@ -91,7 +507,7 @@ Menú ☰ → **APIs y servicios → Pantalla de consentimiento de OAuth**. En l
 
 **Varios dispositivos:** conecta primero uno y espera a que diga *al día*; luego conecta los demás con **el mismo Client ID** y la **misma cuenta**. Todos usan el mismo calendario y la misma hoja.
 
-### Calendario propio «Office Tracker»
+#### Calendario propio «Office Tracker»
 
 - La app crea en tu Google Calendar un calendario secundario **Office Tracker**; tu calendario principal no se toca. Lo ves con su propio color y puedes ocultarlo sin afectar la app.
 - **Uno solo por cuenta.** En cada sincronización la app busca los calendarios con ese nombre. Si hay más de uno (por ejemplo, dos dispositivos que se conectaron a la vez), todos eligen el mismo, le copian los días de los otros y borran los sobrantes. Nunca crea uno nuevo si no pudo buscar primero.
@@ -106,7 +522,7 @@ Menú ☰ → **APIs y servicios → Pantalla de consentimiento de OAuth**. En l
 - Si cambias algo en un dispositivo y aún no se ha subido (punto azul), gana ese cambio. Si no, gana Google Calendar.
 - La sesión de Google dura **~1 hora** (límite de Google para apps sin servidor). Cuando vence, la tarjeta dice **Sesión vencida** → toca **Reconectar**. Lo marcado mientras tanto queda guardado y se sube al reconectar.
 
-### ⚡ Tiempo real con Firebase (opcional, recomendado)
+#### ⚡ Tiempo real con Firebase (opcional, recomendado)
 
 En la tarjeta de Google toca **⚡ Activar tiempo real** y entra con tu cuenta, en cada dispositivo y con la misma cuenta. Desde ahí:
 
@@ -118,7 +534,7 @@ En la tarjeta de Google toca **⚡ Activar tiempo real** y entra con tu cuenta, 
 
 La configuración de Firebase (proyecto, inicio de sesión, base de datos y reglas) y las fases siguientes, como notificaciones con la app cerrada, están en [docs/FIREBASE.md](docs/FIREBASE.md).
 
-### Historial permanente en Google Sheets
+#### Historial permanente en Google Sheets
 
 - Cada cambio del historial se agrega como fila en la hoja **Office Tracker · Historial**, dentro de la carpeta **office-tracker** en la raíz de **Mi unidad** (`Mi unidad/office-tracker/`). La app crea la carpeta y la hoja la primera vez.
 - Funciona como un **log de auditoría**: una fila por evento, en orden cronológico, con filtro y la fila de títulos fija. Columnas:
@@ -154,13 +570,13 @@ La configuración de Firebase (proyecto, inicio de sesión, base de datos y regl
   - Si la mandas a la papelera, la app crea una nueva y sigue escribiendo ahí.
   - Si ya tenías una carpeta `office-tracker` creada a mano, la app no la ve (por el permiso `drive.file`) y crea la suya. Borra la manual para no tener dos.
 
-### Desconectar o cambiar de Client ID
+#### Desconectar o cambiar de Client ID
 
 - **Desconectar** (en la tarjeta de Google): cierra la sesión y olvida el Client ID en ese dispositivo. Opcionalmente borra el calendario Office Tracker de Google. Tus días marcados se quedan en el dispositivo y se vuelven a subir al conectar.
 - **Cambiar Client ID** (aparece con la sesión vencida): pega el nuevo. Con un Client ID de **otro proyecto**, la app no puede ver el calendario ni la hoja que creó el anterior (los permisos son por proyecto): bórralos a mano en Google Calendar → Configuración → Office Tracker → **Eliminar**, y en Drive.
 - Si cambian los permisos que pide la app, verás **Sesión vencida** al abrirla: toca **Reconectar** y acepta los permisos nuevos.
 
-### Solución de problemas
+#### Solución de problemas
 
 | Lo que ves | Causa y solución |
 |---|---|
@@ -176,7 +592,7 @@ La configuración de Firebase (proyecto, inicio de sesión, base de datos y regl
 
 **Si venías de la versión 2:** tus días se suben al calendario nuevo automáticamente. En la tarjeta de Google aparece **"Borrar N eventos viejos del calendario principal"**; tócalo una vez y Google te pedirá un permiso adicional solo para esa limpieza.
 
-### Avisos de las 10:00 a. m. y 4:30 p. m.
+#### Avisos de las 10:00 a. m. y 4:30 p. m.
 
 La app programa en el calendario Office Tracker dos avisos de lunes a viernes (**"¿Vas a la oficina hoy?"** y **"¿Fuiste a la oficina hoy?"**), saltándose festivos y fines de semana, con 3 semanas de anticipación. Se renuevan cada vez que abres la app.
 
@@ -185,7 +601,7 @@ La app programa en el calendario Office Tracker dos avisos de lunes a viernes (*
 - Para recibirlos en Android: en la app Google Calendar → Configuración → tu cuenta → **Office Tracker**, verifica que esté sincronizado y con notificaciones activas.
 - Si el enlace abre en una pestaña de Chrome y no en la app: Ajustes de Android → Apps → OfficeTracker → **Abrir de forma predeterminada** → activa los enlaces compatibles.
 
-### Deshacer y auditoría
+#### Deshacer y auditoría
 
 - Cada toque se aplica en pantalla al instante, pero espera **5 segundos** antes de subirse, con una barra **Deshacer** abajo. Si sales de la app antes, se sube de inmediato.
 - Todo cambio queda en el **historial** con su origen: **Manual** (toque en la app), **Aviso ✓** (enlace de notificación con código verificado), **Aviso ⚠** (el código no corresponde a ese día), **Aviso ?** (no se pudo verificar), **Calendar** (editado desde Google Calendar) o **Deshecho**. También guarda la hora exacta, un id del cambio y el código del dispositivo.
@@ -195,13 +611,13 @@ La app programa en el calendario Office Tracker dos avisos de lunes a viernes (*
 
 ---
 
-## 🔄 Publicar actualizaciones
+### 🔄 Publicar actualizaciones
 
-Cada vez que subas cambios a GitHub Pages, abre `sw.js` y sube la versión (`const VERSION = 'v14'` → `'v15'`…), y pon el mismo valor en `APP_VER` dentro de `index.html` (sale en la columna *Versión app* del log). La app carga el HTML desde la red primero, así que basta con cerrarla y abrirla para ver la versión nueva.
+Cada vez que subas cambios a GitHub Pages, abre `sw.js` y sube la versión (`const VERSION = 'v15'` → `'v16'`…), y pon el mismo valor en `APP_VER` dentro de `js/config.js` (sale en la columna *Versión app* del log). Si agregaste un archivo nuevo en `js/`, súmalo también en `index.html` y en la lista `JS` de `sw.js`. La app carga el HTML, el JS y el CSS desde la red primero, así que basta con cerrarla y abrirla para ver la versión nueva.
 
 ---
 
-## 🇨🇴 Festivos Colombia incluidos
+### 🇨🇴 Festivos Colombia incluidos
 
 Los festivos se calculan **automáticamente** para cualquier año:
 
@@ -213,7 +629,7 @@ Los festivos se calculan **automáticamente** para cualquier año:
 
 ---
 
-## 📊 Lógica de la meta
+### 📊 Lógica de la meta
 
 - **Base:** 8 visitas por mes
 - **Semana con festivo o vacación:** cuota = 1 (en vez de 2)
@@ -234,7 +650,7 @@ Los festivos se calculan **automáticamente** para cualquier año:
 
 ---
 
-## 🔄 Uso del tracker
+### 🔄 Uso del tracker
 
 | Acción | Resultado |
 |--------|-----------|
@@ -251,12 +667,12 @@ Los festivos de Colombia (franja amarillo-azul-rojo) son automáticos — no nec
 
 Un punto azul en la esquina de un día indica que ese cambio aún no se ha subido a Google Calendar.
 
-### Indicadores de sincronización y versión
+#### Indicadores de sincronización y versión
 
 - Con el tiempo real activo, el chip de arriba dice **⚡ En vivo**.
 - Mientras la app habla con Google (subir un día, traer cambios, actualizar avisos, escribir en el log) aparece una **barra azul animada arriba de la pantalla**, el chip del encabezado gira con **Sincronizando** y la tarjeta de Google dice en qué paso va: *Buscando el calendario…*, *Sincronizando días…*, *Actualizando avisos…*, *Escribiendo en el log…*.
 - Al terminar, la tarjeta dice **Al día · HH:MM** con la hora de la última sincronización.
-- La **versión** de la app (`v14`, …) se ve arriba junto a *ScotiaTech · GBS* y al final de la página. Debe coincidir con la última publicada; si no, cierra y abre la app (en PC, **Ctrl+Shift+R**).
+- La **versión** de la app (`v15`, …) se ve arriba junto a *ScotiaTech · GBS* y al final de la página. Debe coincidir con la última publicada; si no, cierra y abre la app (en PC, **Ctrl+Shift+R**).
 - **Ver log**: en la tarjeta de historial, en el detalle de cada día y en la tarjeta de Google hay un enlace directo a la hoja de Google Sheets.
 
 ---
