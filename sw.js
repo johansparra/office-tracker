@@ -1,5 +1,5 @@
 // Sube este número cada vez que publiques cambios en GitHub Pages (y APP_VER en js/nucleo/constantes.js)
-const VERSION = 'v17';
+const VERSION = 'v18';
 const CACHE = `office-tracker-${VERSION}`;
 // Todos los módulos de js/: si agregas un archivo, súmalo aquí (para que la app abra sin internet).
 // La prueba tests/estructura.test.mjs falla si falta alguno.

@@ -250,7 +250,7 @@ flowchart TD
 | [js/](js/) | La lógica de la app: 34 módulos organizados por capas (ver [sección 4](#4-estructura-del-código-y-cómo-modificarlo)). | Para encontrar y cambiar cada cosa sin leer todo, y probar las reglas por separado. |
 | [sw.js](sw.js) | *Service worker*: guarda la app en caché para que abra sin internet y siempre trae la última versión publicada cuando hay red. | Requisito para que Chrome trate la web como app instalable y funcione offline. |
 | [manifest.json](manifest.json) | *Manifiesto PWA*: nombre, ícono, colores y modo pantalla completa (`standalone`). | Chrome lo exige para ofrecer **Instalar / Agregar a pantalla de inicio**. |
-| [img/](img/) | Íconos de la app: `icon.svg` es el diseño fuente (vectorial) y `icon-192.png` / `icon-512.png` se generan desde él. | Los PNG los usa el manifiesto (pantalla de inicio, splash) y el encabezado. Si cambias el diseño, edita el SVG y vuelve a exportar los dos PNG; el dibujo debe quedar dentro del círculo central (radio 205 de 512) para que Android no lo recorte. |
+| [img/](img/) | Íconos de la app: `icon-192.png` e `icon-512.png`, y `logo-original.png`, la imagen original del logo de la que salen. | Los usa el manifiesto (pantalla de inicio, splash) y el encabezado. Si cambias el logo, recorta el fondo, ponlo sobre el fondo grafito y deja el dibujo dentro del círculo central (radio 40 % del lado) para que Android no lo recorte. |
 
 ### Pruebas
 
@@ -705,7 +705,7 @@ La app programa en el calendario Office Tracker dos avisos de lunes a viernes (*
 
 ### 🔄 Publicar actualizaciones
 
-Cada vez que subas cambios a GitHub Pages, abre `sw.js` y sube la versión (`const VERSION = 'v17'` → `'v18'`…), y pon el mismo valor en `APP_VER` dentro de `js/nucleo/constantes.js` (sale en la columna *Versión app* del log). Si agregaste un archivo nuevo en `js/`, súmalo también a la lista `JS` de `sw.js`. Antes de publicar, corre las pruebas (`cd tests && npm test`, ver sección 4.5). La app carga el HTML, el JS y el CSS desde la red primero, así que basta con cerrarla y abrirla para ver la versión nueva.
+Cada vez que subas cambios a GitHub Pages, abre `sw.js` y sube la versión (`const VERSION = 'v18'` → `'v19'`…), y pon el mismo valor en `APP_VER` dentro de `js/nucleo/constantes.js` (sale en la columna *Versión app* del log). Si agregaste un archivo nuevo en `js/`, súmalo también a la lista `JS` de `sw.js`. Antes de publicar, corre las pruebas (`cd tests && npm test`, ver sección 4.5). La app carga el HTML, el JS y el CSS desde la red primero, así que basta con cerrarla y abrirla para ver la versión nueva.
 
 ---
 
@@ -764,7 +764,7 @@ Un punto azul en la esquina de un día indica que ese cambio aún no se ha subid
 - Con el tiempo real activo, el chip de arriba dice **⚡ En vivo**.
 - Mientras la app habla con Google (subir un día, traer cambios, actualizar avisos, escribir en el log) aparece una **barra azul animada arriba de la pantalla**, el chip del encabezado gira con **Sincronizando** y la tarjeta de Google dice en qué paso va: *Buscando el calendario…*, *Sincronizando días…*, *Actualizando avisos…*, *Escribiendo en el log…*.
 - Al terminar, la tarjeta dice **Al día · HH:MM** con la hora de la última sincronización.
-- La **versión** de la app (`v17`, …) se ve arriba junto a *ScotiaTech · GBS* y al final de la página. Debe coincidir con la última publicada; si no, cierra y abre la app (en PC, **Ctrl+Shift+R**).
+- La **versión** de la app (`v18`, …) se ve arriba junto a *ScotiaTech · GBS* y al final de la página. Debe coincidir con la última publicada; si no, cierra y abre la app (en PC, **Ctrl+Shift+R**).
 - **Ver log**: en la tarjeta de historial, en el detalle de cada día y en la tarjeta de Google hay un enlace directo a la hoja de Google Sheets.
 
 ---
