@@ -31,10 +31,11 @@ test('festivos: idénticos para todos los años 1900–2200',()=>{
   for(let y=1900;y<=2200;y++) igual(holidays(y),h(y),`año ${y}`);
 });
 
-test('meta del mes: idéntica para cada mes 2024–2028 con 30 combinaciones aleatorias de días y fechas de hoy',()=>{
+// Desde noviembre 2026 la meta cambió (RN-01: 12 al mes, 3 por semana) y ya no se compara con la v15: lo cubre reglas.test.mjs
+test('meta del mes: idéntica para cada mes 2024–octubre 2026 con 30 combinaciones aleatorias de días y fechas de hoy',()=>{
   const stats=v15('(d,y,m,n)=>{ S.data=d; now=n; return stats(y,m); }');
   let casos=0;
-  for(let y=2024;y<=2028;y++) for(let m=0;m<12;m++) for(let i=0;i<30;i++){
+  for(let y=2024;y<=2026;y++) for(let m=0;m<(y<2026?12:10);m++) for(let i=0;i<30;i++){
     const data={};
     for(const k of dias(F.toKey(new Date(y,m,-6)),F.toKey(new Date(y,m+1,6)))) if(r()<0.35){ const t=tipoAzar(); if(t) data[k]=t; }
     const hoy=new Date(y,m,Math.floor(r()*45)-7); hoy.setHours(0,0,0,0);
@@ -42,7 +43,7 @@ test('meta del mes: idéntica para cada mes 2024–2028 con 30 combinaciones ale
     casos++;
   }
   v15('S.data={}; now=today();');
-  assert.equal(casos,1800);
+  assert.equal(casos,1020);
 });
 
 test('ciclo de toques: idéntico a toggle() de la v15 para cada día de 2026 y cada estado',()=>{
@@ -108,7 +109,12 @@ test('qué avisos debe tener cada día, su título y su evento: idénticos para 
       igual(avisosDeseados(k,data,skip,ahora),ds(k,{...data},{...skip}),k);
       for(const slot of ['r10','r16']){
         assert.equal(tituloAviso(k,slot,data,hoy),rt(k,slot,{...data}),`${k} ${slot}`);
-        if(i<3) igual(cuerpoAviso(k,slot,'abcd1234',tituloAviso(k,slot,data,hoy),'http://localhost:8765/'),rb(k,slot,'abcd1234',{...data}));
+        if(i<3){
+          // RN-18: desde la v19 el texto trae un enlace por respuesta (lo prueba reglas.test.mjs); el resto del evento es idéntico
+          const nuevo=cuerpoAviso(k,slot,'abcd1234',tituloAviso(k,slot,data,hoy),'http://localhost:8765/'), viejo=rb(k,slot,'abcd1234',{...data});
+          igual({...nuevo,description:null},{...viejo,description:null});
+          assert.ok(nuevo.description.endsWith(`\n${viejo.description.split('\n').pop()}`),`${k} ${slot}: termina con el enlace de la v15`);
+        }
       }
     }
   }

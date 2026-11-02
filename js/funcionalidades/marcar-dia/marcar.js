@@ -47,8 +47,14 @@ export function toggle(date){
 let undoState=null, undoTimer=null;
 function showUndo(key,prev,next){
   undoState={key,prev};
+  showToast(`${tico(next)}${next?TYPE_UI[next]:'Quitado'} <small>${fmtDay(key)}</small>`,true);
+}
+// Aviso breve sin «Deshacer» (por ejemplo, «Hoy no fui» desde el enlace del aviso)
+export function showInfo(html){ undoState=null; showToast(html,false); }
+function showToast(html,undo){
   const t=document.getElementById('toast');
-  document.getElementById('toast-txt').innerHTML=`${tico(next)}${next?TYPE_UI[next]:'Quitado'} <small>${fmtDay(key)}</small>`;
+  document.getElementById('toast-txt').innerHTML=html;
+  document.getElementById('toast-undo').hidden=!undo;
   const bar=document.getElementById('toast-bar');
   bar.style.animation='none'; void bar.offsetWidth; bar.style.animation=`drain ${UNDO_MS}ms linear forwards`;
   t.classList.add('show');

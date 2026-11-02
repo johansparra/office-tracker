@@ -3,11 +3,11 @@ import { cargarApp } from './cargar.mjs';
 
 const OPCIONES=['ls','antes','inicio','url','conFirebase','firebase','semilla','conGoogle','conGIS'];
 
-export async function correr(esc,impl){
+export async function correr(esc,impl,extra={}){
   const op={...(esc.op||{})};
   for(const k of OPCIONES) if(esc[k]!==undefined) op[k]=esc[k];
   if(esc.fbAntes){ const prev=op.antes; op.antes=x=>{ prev?.(x); esc.fbAntes(x.fb); }; }   // preparar Firebase antes de abrir la app
-  const a=await cargarApp({...op,impl});
+  const a=await cargarApp({...op,...extra,impl});
   const fotos=[];
   try{ await esc.pasos(a,()=>fotos.push(a.foto())); }
   finally{ a.cerrar(); }

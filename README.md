@@ -27,21 +27,21 @@ Cada regla dice **dónde está en el código**, para cambiarla sin buscar, y tie
 
 | # | Regla | Código |
 |---|---|---|
-| RN-01 | La meta base es **8 visitas al mes**. | `BASE` en [js/nucleo/constantes.js](js/nucleo/constantes.js) |
-| RN-02 | Las semanas van de **lunes a domingo**. Lo ideal son **2 visitas por semana**. | `weeks()` en [js/nucleo/meta.js](js/nucleo/meta.js) |
-| RN-03 | Una semana con **un festivo o un día libre/vacación** tiene cuota **1** en vez de 2. El festivo cuenta **cualquier día**, incluso sábado o domingo. | `calcularMes()` → `hasAdj` |
-| RN-04 | **Meta ajustada = 8 − número de semanas con festivo o día libre** (nunca menos de 0). | `calcularMes()` → `target` |
+| RN-01 | La meta base es **12 visitas al mes (3 por semana) desde noviembre 2026**; hasta octubre 2026 era **8 (2 por semana)**. Los meses anteriores conservan su regla. | `METAS` en [js/nucleo/constantes.js](js/nucleo/constantes.js), `reglaMes()` en [js/nucleo/meta.js](js/nucleo/meta.js) |
+| RN-02 | Las semanas van de **lunes a domingo**. Lo ideal es la **cuota de la semana** (3 desde noviembre 2026; antes 2). | `weeks()` en [js/nucleo/meta.js](js/nucleo/meta.js) |
+| RN-03 | Una semana con **un festivo o un día libre/vacación** tiene **una visita menos**: cuota **2** en vez de 3 (hasta octubre 2026: 1 en vez de 2). El festivo cuenta **cualquier día**, incluso sábado o domingo. | `calcularMes()` → `hasAdj` |
+| RN-04 | **Meta ajustada = base (12, o 8 hasta octubre 2026) − número de semanas con festivo o día libre** (nunca menos de 0). | `calcularMes()` → `target` |
 | RN-05 | **Semanas que cruzan de mes:** se muestran completas, pero solo cuentan los días del mes visible (visitas, festivos y días libres). Ningún día suma en dos meses. | `calcularMes()` → `inMonth` |
 | RN-06 | Una **visita** es un día marcado como 🏢 Oficina, incluido un festivo entre semana. Las visitas por encima de la meta cuentan como extra. | `calcularMes()` → `visited` |
 
-**Ejemplo:** octubre 2026 tiene el festivo del lunes 12 (Día de la Raza). Esa semana tiene cuota 1 → meta = 8 − 1 = **7**.
+**Ejemplos:** octubre 2026 (regla anterior) tiene el festivo del lunes 12 (Día de la Raza). Esa semana tiene cuota 1 → meta = 8 − 1 = **7**. Noviembre 2026 (regla nueva) tiene los festivos del lunes 2 y el lunes 16. Esas dos semanas tienen cuota 2 → meta = 12 − 2 = **10**.
 
 ### 1.2 Alertas: margen y días obligatorios
 
 | # | Regla | Código |
 |---|---|---|
 | RN-07 | **Días hábiles libres** = días de lunes a viernes, **desde hoy** hasta fin de mes, que no son festivo y aún no están marcados. | `calcularMes()` → `open` |
-| RN-08 | **Margen = días hábiles libres − visitas que faltan.** Lo que manda es la meta del mes, no las 2 por semana. | `calcularMes()` → `slack` |
+| RN-08 | **Margen = días hábiles libres − visitas que faltan.** Lo que manda es la meta del mes, no la cuota de cada semana. | `calcularMes()` → `slack` |
 | RN-09 | Según el margen, la tarjeta del mes muestra: | `estadoMes()` en [js/nucleo/meta.js](js/nucleo/meta.js); textos en `renderMes()` de [js/funcionalidades/mes/vista.js](js/funcionalidades/mes/vista.js) |
 
 | Situación | Mensaje |
@@ -92,9 +92,9 @@ Cada regla dice **dónde está en el código**, para cambiarla sin buscar, y tie
 |---|---|---|
 | RN-15 | Hay dos avisos por día: **10:00 a. m.** "¿Vas a la oficina hoy?" y **4:30 p. m.** "¿Fuiste a la oficina hoy?", hora de Bogotá. | `SLOTS` en [js/nucleo/constantes.js](js/nucleo/constantes.js) |
 | RN-16 | Solo de **lunes a viernes**, sin festivos, en días **sin marcar**, y solo para horas que aún no pasaron. Se programan **21 días** hacia adelante. | `avisosDeseados()` en [js/nucleo/avisos.js](js/nucleo/avisos.js), `HORIZON` |
-| RN-17 | Al marcar un día se borran sus avisos pendientes (si confirmas a las 11, no suena el de las 4:30). | `syncRemindersForDate()` en [js/funcionalidades/avisos/programar.js](js/funcionalidades/avisos/programar.js) |
-| RN-18 | Cada aviso trae un enlace con un **código único**. Al abrirlo, la app verifica que el código corresponda a ese día: **Aviso ✓** (verificado), **Aviso ⚠** (no coincide) o **Aviso ?** (no se pudo verificar). | `verifyNonce()` en [js/funcionalidades/avisos/enlace.js](js/funcionalidades/avisos/enlace.js) |
-| RN-19 | Desde el aviso se puede responder **Fui a la oficina**, **Día libre** u **Hoy no fui**. *Hoy no fui* no cambia el día, pero cancela el aviso que quede ese día y queda registrado. | `openNotifSheet()` |
+| RN-17 | Al **responder** un día (*Fui a la oficina*, *Día libre* u *Hoy no fui*) se borran sus avisos, también el que ya sonó (si confirmas a las 11, no suena el de las 4:30). Sin respuesta, los avisos de hoy se quedan hasta que termina el día, para que puedas responder desde ellos; los de **días que ya pasaron** se borran en la siguiente sincronización, sin importar cuántos días lleves sin conectarte. El evento del día (🏢 / 🏖️) queda en el calendario como registro. | `avisoSobra()` en [js/nucleo/avisos.js](js/nucleo/avisos.js), aplicada en `syncRemindersForDate()` y `reconcileReminders()` de [js/funcionalidades/avisos/programar.js](js/funcionalidades/avisos/programar.js) |
+| RN-18 | Cada aviso trae **un enlace por respuesta** (*🏢 Fui a la oficina*, *❌ Hoy no fui*, *🏖️ Día libre*: se registra con un toque, sin pasar por las opciones) y uno que abre **todas las opciones**. Todos llevan un **código único**. Al abrirlo, la app verifica que el código corresponda a ese día: **Aviso ✓** (verificado), **Aviso ⚠** (no coincide) o **Aviso ?** (no se pudo verificar). Si el código no coincide, una respuesta con un toque no se registra: se muestran las opciones para que confirmes. Los avisos creados antes de la v19 reciben los enlaces nuevos en la siguiente sincronización (una sola vez). | `textoAviso()` en [js/nucleo/avisos.js](js/nucleo/avisos.js), `RESPUESTAS` en [js/nucleo/constantes.js](js/nucleo/constantes.js), `verifyNonce()` en [js/funcionalidades/avisos/enlace.js](js/funcionalidades/avisos/enlace.js) |
+| RN-19 | Desde el aviso se puede responder **Fui a la oficina**, **Día libre** u **Hoy no fui**. *Hoy no fui* no cambia el día, pero cancela el aviso que quede ese día y queda registrado. El registro llega a tus otros dispositivos con el historial compartido, así que ninguno vuelve a crear avisos para ese día. | `openNotifSheet()` y `registrar()` en [js/funcionalidades/avisos/enlace.js](js/funcionalidades/avisos/enlace.js), `diasNoFui()` en [js/nucleo/avisos.js](js/nucleo/avisos.js) |
 
 ### 1.6 Sincronización y conflictos
 
@@ -161,9 +161,9 @@ flowchart LR
 flowchart TD
   A["Mes visible"] --> B["Partir en semanas lunes–domingo"]
   B --> C{"¿La semana tiene festivo o<br/>día libre dentro del mes?"}
-  C -->|Sí| D["Cuota 1"]
-  C -->|No| E["Cuota 2"]
-  D --> F["Meta = 8 − semanas con cuota 1"]
+  C -->|Sí| D["Cuota 2<br/>(1 hasta oct. 2026)"]
+  C -->|No| E["Cuota 3<br/>(2 hasta oct. 2026)"]
+  D --> F["Meta = 12 − semanas con festivo o día libre<br/>(8 − … hasta oct. 2026)"]
   E --> F
   F --> G["Faltan = meta − visitas del mes"]
   G --> H["Libres = lun–vie desde hoy,<br/>sin festivo y sin marcar"]
@@ -201,7 +201,7 @@ sequenceDiagram
   end
   Note over A: pasados 5 s (o al salir de la app)
   A->>G: crea, actualiza o borra el evento del día
-  A->>G: borra los avisos pendientes de ese día
+  A->>G: borra los avisos de ese día
   A->>H: agrega la fila al log
 ```
 
@@ -324,12 +324,12 @@ Estas reglas no son solo una sugerencia: [tests/estructura.test.mjs](tests/estru
 js/
 ├── app.js                                 arranque: conecta todo y carga los datos
 ├── nucleo/                                REGLAS DE NEGOCIO PURAS
-│   ├── constantes.js                      BASE, UNDO_MS, HORIZON, SLOTS, SCOPES, APP_VER, TYPE_LBL…
+│   ├── constantes.js                      METAS, UNDO_MS, HORIZON, SLOTS, SCOPES, APP_VER, TYPE_LBL…
 │   ├── fechas.js                          claves 'AAAA-MM-DD', semana ISO, formatos
 │   ├── festivos.js                        RN-14 festivos de Colombia
 │   ├── meta.js                            RN-01..10 calcularMes(), estadoMes()
 │   ├── marcado.js                         RN-11 siguienteEstado()
-│   ├── avisos.js                          RN-15..17 avisosDeseados(), tituloAviso(), cuerpoAviso()
+│   ├── avisos.js                          RN-15..19 avisosDeseados(), avisoSobra(), diasNoFui(), textoAviso(), cuerpoAviso()
 │   ├── conflictos.js                      RN-21..25, 29 quién gana; classify(), explained()
 │   └── registro.js                        RN-26 textos del origen, validar un registro
 ├── estado/
@@ -348,7 +348,7 @@ js/
 │   ├── mes/navegacion.js                  cambiar de mes, deslizar, Escape
 │   ├── marcar-dia/marcar.js               applyChange(), toggle(), deshacer
 │   ├── avisos/programar.js                crear/corregir/borrar avisos en Calendar
-│   ├── avisos/enlace.js                   abrir un aviso y verificar su código
+│   ├── avisos/enlace.js                   abrir un aviso, verificar su código y registrar la respuesta
 │   ├── historial/registro.js              logChange(), subir a la hoja, ocultar
 │   ├── historial/tarjeta.js               tarjeta «Historial de cambios»
 │   ├── historial/historial-dia.js         hoja con el historial de un día
@@ -367,13 +367,14 @@ js/
 
 | Quiero cambiar… | Archivo | Qué tocar |
 |---|---|---|
-| La meta base (8) o el tiempo de deshacer | `js/nucleo/constantes.js` | `BASE`, `UNDO_MS` |
+| La meta base (12) y la cuota semanal (agrega una fila con el mes desde el que aplica) o el tiempo de deshacer | `js/nucleo/constantes.js` | `METAS`, `UNDO_MS` |
 | Cómo se calcula la cuota o la meta | `js/nucleo/meta.js` | `calcularMes()` |
 | Cuándo se muestra cada mensaje (por ejemplo "poco margen" con 2) | `js/nucleo/meta.js` | `estadoMes()` |
 | El texto de los mensajes del mes | `js/funcionalidades/mes/vista.js` | `renderMes()` |
 | Agregar o corregir un festivo | `js/nucleo/festivos.js` | `holidays()` |
 | Horas o textos de los avisos, o los días hacia adelante | `js/nucleo/constantes.js` | `SLOTS`, `HORIZON` |
-| Qué días tienen avisos | `js/nucleo/avisos.js` | `avisosDeseados()` |
+| Qué días tienen avisos y cuáles se borran | `js/nucleo/avisos.js` | `avisosDeseados()`, `avisoSobra()` |
+| Las respuestas con un toque del aviso | `js/nucleo/constantes.js` | `RESPUESTAS` |
 | Quién gana cuando hay diferencias con Calendar o Firestore | `js/nucleo/conflictos.js` | `importarDeCalendar()`, `decidirDiaConFirebase()`, `decidirDiaRemoto()` |
 | Cómo se interpreta el título de un evento | `js/nucleo/conflictos.js` | `classify()` |
 | Colores, tamaños, tipografía | `css/styles.css` | variables de `:root` |
@@ -405,15 +406,15 @@ npm test
 
 | Archivo | Qué garantiza | Cantidad |
 |---|---|---|
-| [equivalencia.test.mjs](tests/equivalencia.test.mjs) | **La app se comporta exactamente igual que la v15.** Cada escenario se ejecuta en las dos versiones con el mismo reloj, los mismos datos y el mismo Google/Firebase falsos, y después de cada paso compara: estado, `localStorage`, el HTML de cada tarjeta, **cada llamada a Google** (método, URL y cuerpo, en orden), cada escritura en Firestore y cada diálogo. | 37 escenarios + 18 aleatorios |
-| [reglas.test.mjs](tests/reglas.test.mjs) | Cada regla de negocio RN-01 a RN-30, con valores esperados escritos a mano (por ejemplo, los festivos oficiales de 2026 o el ejemplo del 26 de octubre). | 36 pruebas |
-| [paridad.test.mjs](tests/paridad.test.mjs) | Cada función del núcleo da el mismo resultado que la original de la v15 en miles de entradas: festivos 1900–2200, la meta de cada mes 2024–2028 con datos aleatorios, cada fecha 2020–2030, títulos de eventos, filas de la hoja. | 9 pruebas |
+| [equivalencia.test.mjs](tests/equivalencia.test.mjs) | **La app se comporta exactamente igual que la v15.** Cada escenario se ejecuta en las dos versiones con el mismo reloj, los mismos datos y el mismo Google/Firebase falsos, y después de cada paso compara: estado, `localStorage`, el HTML de cada tarjeta, **cada llamada a Google** (método, URL y cuerpo, en orden), cada escritura en Firestore y cada diálogo. Las reglas que cambiaron a propósito desde la v15 se cargan como eran (ver abajo). | 37 escenarios + 18 aleatorios |
+| [reglas.test.mjs](tests/reglas.test.mjs) | Cada regla de negocio RN-01 a RN-30, con valores esperados escritos a mano (por ejemplo, los festivos oficiales de 2026 o el ejemplo del 26 de octubre). | 43 pruebas |
+| [paridad.test.mjs](tests/paridad.test.mjs) | Cada función del núcleo da el mismo resultado que la original de la v15 en miles de entradas: festivos 1900–2200, la meta de cada mes de 2024 a octubre 2026 con datos aleatorios, cada fecha 2020–2030, títulos y eventos de avisos (salvo su texto, que cambió en la v19), filas de la hoja. | 9 pruebas |
 | [robustez.test.mjs](tests/robustez.test.mjs) | El control de errores: datos guardados dañados, entradas inválidas, Firestore con datos raros o que rechaza escrituras, Google sin red, almacenamiento lleno, una tarjeta que falla. | 10 pruebas |
 | [estructura.test.mjs](tests/estructura.test.mjs) | Las reglas de arquitectura de la sección 4.1, la lista de `sw.js`, que existan los archivos que piden `sw.js`, el manifiesto e `index.html`, la versión y que no haya `catch` vacíos. | 10 pruebas |
 
 **Cómo funciona el entorno de pruebas** ([tests/entorno/](tests/entorno/)): la app corre en un navegador simulado (jsdom) con un reloj falso que solo avanza cuando la prueba lo pide, y con Google Calendar, Drive, Sheets, Google Identity Services y Firebase falsos que guardan sus datos en memoria y registran cada llamada. Así cada escenario es determinista y se puede repetir idéntico.
 
-**Si cambias el comportamiento a propósito** (una regla nueva, un texto distinto), la prueba de equivalencia de ese escenario va a fallar mostrando exactamente qué cambió. Revisa que el cambio sea el esperado y actualiza la prueba de la regla en `reglas.test.mjs`. La copia de referencia `tests/referencia-v15/` no se toca: representa cómo funcionaba la app antes de la reestructuración.
+**Si cambias el comportamiento a propósito** (una regla nueva, un texto distinto), la prueba de equivalencia de ese escenario va a fallar mostrando exactamente qué cambió. Revisa que el cambio sea el esperado, escribe la prueba de la regla en `reglas.test.mjs` y agrega a [tests/entorno/como-v15.mjs](tests/entorno/como-v15.mjs) la línea nueva (`de`) con la de la v15 (`a`): así la equivalencia sigue comparando todo lo demás. Hoy están ahí la meta desde noviembre 2026 (RN-01) y los avisos de la v19 (RN-17 a RN-19). La copia de referencia `tests/referencia-v15/` no se toca: representa cómo funcionaba la app antes de la reestructuración.
 
 ### 4.6 Probar en local
 
@@ -688,8 +689,12 @@ La configuración de Firebase (proyecto, inicio de sesión, base de datos y regl
 
 La app programa en el calendario Office Tracker dos avisos de lunes a viernes (**"¿Vas a la oficina hoy?"** y **"¿Fuiste a la oficina hoy?"**), saltándose festivos y fines de semana, con 3 semanas de anticipación. Se renuevan cada vez que abres la app.
 
-- Al marcar un día (🏢 o 🏖️), los avisos pendientes de ese día se borran: si confirmas a las 11, no te suena el de las 4:30.
-- Cada aviso trae un enlace con un código único. Al tocarlo se abre el tracker con el día listo para confirmar: **Fui a la oficina**, **Día libre** u **Hoy no fui** (este último cancela el aviso que quede ese día).
+- **Responder con un toque:** toca la notificación y, en el evento, el enlace de tu respuesta: **🏢 Fui a la oficina**, **❌ Hoy no fui** o **🏖️ Día libre**. Queda registrado al instante (con *Deshacer* si fue oficina o día libre). El último enlace, *Ver todas las opciones*, abre el día listo para confirmar.
+- Las notificaciones son de Google Calendar: Google no deja agregarles botones, por eso los enlaces van dentro del evento.
+- Al responder, los avisos de ese día se borran del calendario, también el que ya sonó: si confirmas a las 11, no te suena el de las 4:30. *Hoy no fui* también se respeta en tus otros dispositivos.
+- Si no respondes, los avisos de hoy se quedan hasta que termina el día. Los de días que ya pasaron se borran la próxima vez que la app sincronice con Google, aunque lleves semanas sin conectarte.
+- Los días que marcaste (🏢 / 🏖️) quedan en el calendario como registro.
+- El calendario solo se limpia con la app abierta y **conectada a Google** (la conexión dura 1 hora; después la tarjeta pide *Reconectar*).
 - Para recibirlos en Android: en la app Google Calendar → Configuración → tu cuenta → **Office Tracker**, verifica que esté sincronizado y con notificaciones activas.
 - Si el enlace abre en una pestaña de Chrome y no en la app: Ajustes de Android → Apps → OfficeTracker → **Abrir de forma predeterminada** → activa los enlaces compatibles.
 
@@ -705,7 +710,7 @@ La app programa en el calendario Office Tracker dos avisos de lunes a viernes (*
 
 ### 🔄 Publicar actualizaciones
 
-Cada vez que subas cambios a GitHub Pages, abre `sw.js` y sube la versión (`const VERSION = 'v18'` → `'v19'`…), y pon el mismo valor en `APP_VER` dentro de `js/nucleo/constantes.js` (sale en la columna *Versión app* del log). Si agregaste un archivo nuevo en `js/`, súmalo también a la lista `JS` de `sw.js`. Antes de publicar, corre las pruebas (`cd tests && npm test`, ver sección 4.5). La app carga el HTML, el JS y el CSS desde la red primero, así que basta con cerrarla y abrirla para ver la versión nueva.
+Cada vez que subas cambios a GitHub Pages, abre `sw.js` y sube la versión (`const VERSION = 'v19'` → `'v20'`…), y pon el mismo valor en `APP_VER` dentro de `js/nucleo/constantes.js` (sale en la columna *Versión app* del log). Si agregaste un archivo nuevo en `js/`, súmalo también a la lista `JS` de `sw.js`. Antes de publicar, corre las pruebas (`cd tests && npm test`, ver sección 4.5). La app carga el HTML, el JS y el CSS desde la red primero, así que basta con cerrarla y abrirla para ver la versión nueva.
 
 ---
 
@@ -723,12 +728,12 @@ Los festivos se calculan **automáticamente** para cualquier año:
 
 ### 📊 Lógica de la meta
 
-- **Base:** 8 visitas por mes
-- **Semana con festivo o vacación:** cuota = 1 (en vez de 2)
-- **Meta ajustada:** `8 − número de semanas con festivo/vacación`
+- **Base:** 12 visitas por mes (3 por semana) desde noviembre 2026; hasta octubre 2026 eran 8 (2 por semana)
+- **Semana con festivo o vacación:** cuota = 2 (en vez de 3); hasta octubre 2026, 1 en vez de 2
+- **Meta ajustada:** `12 − número de semanas con festivo/vacación` (hasta octubre 2026: `8 − …`)
 - Los festivos cuentan **cualquier día de la semana**, incluso sábado o domingo
 - **Semanas que cruzan de mes:** la semana se muestra completa, pero solo cuentan los días del mes visible (visitas, festivos y vacaciones). Ningún día suma en dos meses.
-- **Lo ideal es 2 por semana, pero lo que manda es la meta del mes.** La app cuenta los **días hábiles libres** que quedan (lunes a viernes, desde hoy, sin festivos y sin días ya marcados) y los compara con las visitas que te faltan:
+- **Lo ideal es la cuota de cada semana (3), pero lo que manda es la meta del mes.** La app cuenta los **días hábiles libres** que quedan (lunes a viernes, desde hoy, sin festivos y sin días ya marcados) y los compara con las visitas que te faltan:
 
 | Situación | Lo que ves |
 |---|---|
@@ -738,7 +743,7 @@ Los festivos se calculan **automáticamente** para cualquier año:
 | Faltan más que los días hábiles que quedan | 🚨 **No alcanzas la meta** y la lista de días que aún puedes ir |
 
 - Cuando la alerta es *sí o sí*, esos días se marcan en el calendario con un **borde rojo punteado** (leyenda *Obligatorio*), y el aviso de las 10:00 a. m. de esos días cambia a **"⚠️ Hoy tienes que ir a la oficina"**.
-- Ejemplo (octubre 2026, meta 7 por el festivo del 12): el lunes 26 llevas 2 visitas → faltan 5 y quedan 5 días hábiles (26 al 30) → los 5 son obligatorios.
+- Ejemplo con la regla anterior (octubre 2026, meta 7 por el festivo del 12): el lunes 26 llevas 2 visitas → faltan 5 y quedan 5 días hábiles (26 al 30) → los 5 son obligatorios.
 
 ---
 
@@ -764,7 +769,7 @@ Un punto azul en la esquina de un día indica que ese cambio aún no se ha subid
 - Con el tiempo real activo, el chip de arriba dice **⚡ En vivo**.
 - Mientras la app habla con Google (subir un día, traer cambios, actualizar avisos, escribir en el log) aparece una **barra azul animada arriba de la pantalla**, el chip del encabezado gira con **Sincronizando** y la tarjeta de Google dice en qué paso va: *Buscando el calendario…*, *Sincronizando días…*, *Actualizando avisos…*, *Escribiendo en el log…*.
 - Al terminar, la tarjeta dice **Al día · HH:MM** con la hora de la última sincronización.
-- La **versión** de la app (`v18`, …) se ve arriba junto a *ScotiaTech · GBS* y al final de la página. Debe coincidir con la última publicada; si no, cierra y abre la app (en PC, **Ctrl+Shift+R**).
+- La **versión** de la app (`v19`, …) se ve arriba junto a *ScotiaTech · GBS* y al final de la página. Debe coincidir con la última publicada; si no, cierra y abre la app (en PC, **Ctrl+Shift+R**).
 - **Ver log**: en la tarjeta de historial, en el detalle de cada día y en la tarjeta de Google hay un enlace directo a la hoja de Google Sheets.
 
 ---

@@ -2,6 +2,7 @@
 // Cada escenario se ejecuta en las dos versiones con el mismo reloj, los mismos datos y el mismo Google/Firebase falsos.
 // Después de cada paso se compara una foto completa: estado S, localStorage, el HTML de cada tarjeta,
 // cada llamada a Google (método, URL y cuerpo, en orden), cada escritura en Firestore y cada diálogo.
+// Las reglas que cambiaron a propósito desde la v15 (meta desde nov. 2026, avisos) se cargan como eran: ver entorno/como-v15.mjs.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -12,7 +13,7 @@ const ALEATORIOS=[...Array.from({length:12},(_,i)=>escenarioAleatorio(i+1)),...A
 
 for(const esc of [...ESCENARIOS,...ALEATORIOS]){
   test(`igual que v15 · ${esc.nombre}`,async()=>{
-    const ref=await correr(esc,'referencia'), nueva=await correr(esc,'nueva');
+    const ref=await correr(esc,'referencia'), nueva=await correr(esc,'nueva',{comoV15:true});
     assert.deepEqual(ref.errores,[],'la versión de referencia no debería tener errores sin controlar en este escenario');
     assert.deepEqual(nueva.errores,[],'la versión nueva tuvo errores sin controlar');
     assert.ok(ref.fotos.length>0,'el escenario no tomó fotos');

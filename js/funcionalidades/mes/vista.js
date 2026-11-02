@@ -2,10 +2,10 @@
 // VISTA DEL MES: resumen y alerta (RN-09), calendario, festivos del mes y semana a semana
 // ═══════════════════════════════════════════════════════════
 import { S, now } from '../../estado/estado.js';
-import { MONTHS, DAYS, DOW, BASE, TYPE_UI } from '../../nucleo/constantes.js';
+import { MONTHS, DAYS, DOW, TYPE_UI } from '../../nucleo/constantes.js';
 import { toKey, fromKey, addD, inMonth, fmtDay, fmtDayLong } from '../../nucleo/fechas.js';
 import { getHol } from '../../nucleo/festivos.js';
-import { estadoMes } from '../../nucleo/meta.js';
+import { estadoMes, reglaMes } from '../../nucleo/meta.js';
 import { IC, FLAG } from '../../ui/iconos.js';
 import { toggle } from '../marcar-dia/marcar.js';
 import { openDaySheet } from '../historial/historial-dia.js';
@@ -29,7 +29,7 @@ export function renderMes(s){
     'no-alcanza':()=>`<div class="must-alert">${IC.warn}<div><strong>No alcanzas la meta.</strong> Necesitas ${s.remaining} y solo quedan ${hab(s.open.length)}. Ve todos los que puedas:${dayList(s.open)}</div></div>`,
     'si-o-si':()=>`<div class="must-alert">${IC.warn}<div><strong>Tienes que ir sí o sí ${s.open.length===1?'el día hábil que queda':`los ${s.open.length} días hábiles que quedan`}</strong> para completar ${s.target}:${dayList(s.open)}</div></div>`,
     'poco-margen':()=>`<div class="predict warn">${IC.warn}<div>Poco margen: necesitas <strong>${s.remaining}</strong> de los <strong>${hab(s.open.length)}</strong> que quedan. Solo puedes faltar <strong>${s.slack}</strong>.</div></div>`,
-    'vas-bien':()=>`<div class="predict ok">${IC.ok}<div>Vas bien. Necesitas <strong>${s.remaining}</strong> en los <strong>${hab(s.open.length)}</strong> que quedan (margen de ${s.slack}). Lo ideal: 2 por semana.</div></div>`,
+    'vas-bien':()=>`<div class="predict ok">${IC.ok}<div>Vas bien. Necesitas <strong>${s.remaining}</strong> en los <strong>${hab(s.open.length)}</strong> que quedan (margen de ${s.slack}). Lo ideal: ${reglaMes(year,month).sem} por semana.</div></div>`,
   }[tipo]();
   document.getElementById('stats').innerHTML=`
     <div class="hero-row">
@@ -41,7 +41,7 @@ export function renderMes(s){
     </div>
     <div class="segs ${s.done?'done':''}" role="img" aria-label="${s.visited} de ${s.target} visitas">${Array.from({length:n},(_,i)=>`<i class="seg ${i<s.visited||s.target===0?'on':''}"><b></b></i>`).join('')}</div>
     <div class="kpis">
-      <div class="kpi"><div class="kpi-v">${s.target}</div><div class="kpi-l">Meta <b>${BASE}−${s.adjN}</b></div></div>
+      <div class="kpi"><div class="kpi-v">${s.target}</div><div class="kpi-l">Meta <b>${reglaMes(year,month).base}−${s.adjN}</b></div></div>
       <div class="kpi"><div class="kpi-v">${s.adjN}</div><div class="kpi-l">Semanas con festivo</div></div>
       <div class="kpi"><div class="kpi-v">${s.open.length}</div><div class="kpi-l">Días hábiles libres</div></div>
     </div>

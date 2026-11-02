@@ -11,9 +11,9 @@ import { eventoDia, CID, SCOPE } from './escenarios.mjs';
 const C=await import('../js/nucleo/constantes.js');
 const F=await import('../js/nucleo/fechas.js');
 const { holidays, getHol, easter }=await import('../js/nucleo/festivos.js');
-const { calcularMes, estadoMes, weeks }=await import('../js/nucleo/meta.js');
+const { calcularMes, estadoMes, weeks, reglaMes }=await import('../js/nucleo/meta.js');
 const { siguienteEstado, tipoValido }=await import('../js/nucleo/marcado.js');
-const { avisosDeseados, tituloAviso, cuerpoAviso }=await import('../js/nucleo/avisos.js');
+const { avisosDeseados, avisoSobra, diasNoFui, tituloAviso, cuerpoAviso }=await import('../js/nucleo/avisos.js');
 const K=await import('../js/nucleo/conflictos.js');
 const R=await import('../js/nucleo/registro.js');
 
@@ -32,9 +32,20 @@ async function conSesion(op={},eventos=[],{conocido=true}={}){
 }
 
 // ── 1.1 Meta mensual ──
-test('RN-01 la meta base es 8 visitas al mes',()=>{
-  assert.equal(C.BASE,8);
+test('RN-01 la meta base es 8 visitas al mes hasta octubre 2026 y 12 desde noviembre 2026',()=>{
+  assert.deepEqual(reglaMes(2026,9),{desde:'0000-01',base:8,sem:2});
+  assert.deepEqual(reglaMes(2026,10),{desde:'2026-11',base:12,sem:3});
+  assert.equal(reglaMes(2027,0).base,12); assert.equal(reglaMes(2020,5).base,8);
   assert.equal(calcularMes({},2026,1,d(2026,1,1)).target,8);   // febrero 2026: sin festivos
+  assert.equal(calcularMes({},2027,1,d(2027,2,1)).target,12);  // febrero 2027: sin festivos
+});
+test('RN-01 desde noviembre 2026: 3 por semana, 2 en semanas con festivo o día libre',()=>{
+  const nov=calcularMes({},2026,10,d(2026,11,2));               // festivos: lunes 2 (Todos los Santos) y lunes 16 (Cartagena)
+  assert.deepEqual(nov.ws.map(w=>F.toKey(w.mon)),['2026-10-26','2026-11-02','2026-11-09','2026-11-16','2026-11-23','2026-11-30']);
+  assert.deepEqual(nov.ws.map(w=>w.quota),[3,2,3,2,3,3]);
+  assert.equal(nov.adjN,2); assert.equal(nov.target,10);
+  assert.equal(calcularMes({'2026-11-11':'vacation'},2026,10,d(2026,11,2)).target,9);
+  assert.equal(OCT().target,7);                                // octubre 2026 sigue con la regla anterior
 });
 test('RN-02 semanas de lunes a domingo; lo ideal son 2 por semana',()=>{
   const ws=weeks(2026,9);
@@ -43,18 +54,18 @@ test('RN-02 semanas de lunes a domingo; lo ideal son 2 por semana',()=>{
   assert.ok(ws.every(w=>w.mon.getDay()===1&&w.sun.getDay()===0));
   assert.deepEqual(OCT().ws.map(w=>w.quota),[2,2,1,2,2]);
 });
-test('RN-03 una semana con festivo o día libre tiene cuota 1; el festivo cuenta aunque caiga en fin de semana',()=>{
+test('RN-03 una semana con festivo o día libre tiene una visita menos (1 hasta oct. 2026, 2 desde nov.); el festivo cuenta aunque caiga en fin de semana',()=>{
   assert.equal(OCT().ws[2].quota,1);                                      // festivo lunes 12
   assert.equal(OCT({'2026-10-21':'vacation'}).ws[3].quota,1);             // día libre miércoles 21
   assert.equal(OCT({'2026-10-24':'vacation'}).ws[3].quota,1);             // día libre en sábado
   const ago=calcularMes({},2027,7,d(2027,8,1));                           // agosto 2027: Boyacá cae sábado 7
   assert.equal(getHol(d(2027,8,7)),'Batalla de Boyacá');
-  assert.equal(ago.ws.find(w=>F.toKey(w.mon)==='2027-08-02').quota,1);
+  assert.equal(ago.ws.find(w=>F.toKey(w.mon)==='2027-08-02').quota,2);  // desde nov. 2026: 3 − 1
 });
-test('RN-04 meta ajustada = 8 − semanas con festivo o día libre (nunca negativa)',()=>{
+test('RN-04 meta ajustada = base − semanas con festivo o día libre (nunca negativa)',()=>{
   assert.equal(OCT().target,7);
   assert.equal(OCT({'2026-10-21':'vacation'}).target,6);
-  assert.equal(calcularMes({},2027,7,d(2027,8,1)).target,6);              // agosto 2027: Boyacá (sáb 7) y Asunción (lun 16)
+  assert.equal(calcularMes({},2027,7,d(2027,8,1)).target,10);             // agosto 2027 (base 12): Boyacá (sáb 7) y Asunción (lun 16)
   const todo={}; for(let i=1;i<=31;i++) todo[`2026-10-${String(i).padStart(2,'0')}`]='vacation';
   const s=OCT(todo); assert.equal(s.adjN,5); assert.equal(s.target,3); assert.ok(s.target>=0);
 });
@@ -174,7 +185,6 @@ test('RN-15 dos avisos: 10:00 y 4:30 p. m., hora de Bogotá',()=>{
   assert.deepEqual(C.SLOTS.map(s=>[s.id,s.h,s.m]),[['r10',10,0],['r16',16,30]]);
   const ev=cuerpoAviso('2026-10-08','r16','abcd1234','t','https://x/');
   assert.equal(ev.start.dateTime,'2026-10-08T16:30:00'); assert.equal(ev.start.timeZone,'America/Bogota');
-  assert.equal(ev.description,'Toca el enlace para registrar el día:\nhttps://x/?d=2026-10-08&r=r16&n=abcd1234');
 });
 test('RN-16 solo lun–vie, sin festivo, sin marcar, sin «Hoy no fui» y horas que no pasaron; 21 días',()=>{
   assert.equal(C.HORIZON,21);
@@ -201,6 +211,35 @@ test('RN-16/17 en Google: se programan 21 días de avisos y al marcar un día se
     assert.equal(avisos().filter(e=>e.extendedProperties.private.date==='2026-10-08').length,0);
   }finally{ a.cerrar(); }
 });
+test('RN-17 un aviso sobra si su día se respondió, si el día ya pasó o si no es hábil; el de hoy sin responder se queda',()=>{
+  const X=(k,data={},skip={})=>avisoSobra(k,data,skip,'2026-10-07');
+  assert.equal(X('2026-10-07'),false);                                     // hoy sin responder, aunque ya haya sonado
+  assert.equal(X('2026-10-08'),false);
+  assert.equal(X('2026-10-06'),true);                                      // ayer
+  assert.equal(X('2026-09-01'),true);                                      // hace más de 7 días
+  assert.equal(X('2026-10-07',{'2026-10-07':'office'}),true);
+  assert.equal(X('2026-10-08',{'2026-10-08':'vacation'}),true);
+  assert.equal(X('2026-10-08',{},{'2026-10-08':true}),true);                // «Hoy no fui»
+  assert.equal(X('2026-10-10'),true); assert.equal(X('2026-10-12'),true);   // sábado · festivo
+  assert.equal(X('2026-02-30'),true); assert.equal(X(undefined),true);      // fecha que no existe
+});
+test('RN-17 en Google: se borran los avisos de días que pasaron (sin límite de fecha); los de hoy esperan respuesta',async()=>{
+  const av=(k,slot,n)=>cuerpoAviso(k,slot,n,C.slotOf(slot).title,'http://localhost:8765/');
+  const a=await conSesion({inicio:'2026-10-07T11:00:00'},
+    [av('2026-09-15','r10','aaaa0001'),av('2026-10-06','r16','aaaa0002'),av('2026-10-07','r10','aaaa0003'),av('2026-10-07','r16','aaaa0004')]);
+  try{
+    const cal=a.getS().calId;
+    const de=k=>a.google.vivos(cal).filter(e=>e.extendedProperties?.private?.kind==='reminder'&&e.extendedProperties.private.date===k);
+    assert.equal(de('2026-09-15').length,0,'de hace 22 días');
+    assert.equal(de('2026-10-06').length,0,'de ayer');
+    assert.deepEqual(de('2026-10-07').map(e=>e.extendedProperties.private.slot).sort(),['r10','r16'],'el de las 10:00 ya sonó, pero aún no respondes');
+    assert.ok(!Object.keys(a.getS().rem).some(k=>k<'2026-10-07'),'tampoco quedan guardados');
+    await a.tocarDia('2026-10-07'); await a.avanzar(6000);
+    assert.equal(de('2026-10-07').length,0,'respondido: se borran los dos');
+    const dia=a.google.vivos(cal).filter(e=>e.extendedProperties?.private?.kind==='day'&&e.start?.date==='2026-10-07');
+    assert.deepEqual(dia.map(e=>e.summary),['🏢 Oficina'],'el día queda en el calendario como registro');
+  }finally{ a.cerrar(); }
+});
 test('RN-18 el código del aviso se verifica: ✓ verificado, ⚠ de otro día, ? sin verificar',async()=>{
   const casos=[['abcdef12','2026-10-07',/código verificado ✓/],['abcdef12','2026-10-08',/no coincide/],['99999999','2026-10-07',/sin verificar/]];
   for(const [n,dia,re] of casos){
@@ -216,6 +255,67 @@ test('RN-19 «Hoy no fui» no cambia el día, cancela los avisos que quedan y qu
     assert.equal(S.data['2026-10-08'],undefined); assert.equal(S.skip['2026-10-08'],true);
     assert.equal(S.log.at(-1).note,'Hoy no fui'); assert.equal(S.log.at(-1).src,'notif');
     assert.equal(a.google.vivos(S.calId).filter(e=>e.extendedProperties?.private?.date==='2026-10-08').length,0);
+  }finally{ a.cerrar(); }
+});
+test('RN-18 el aviso trae un enlace por respuesta y uno que abre todas las opciones',()=>{
+  const ev=cuerpoAviso('2026-10-08','r16','abcd1234','t','https://x/'), u='https://x/?d=2026-10-08&r=r16&n=abcd1234';
+  assert.equal(ev.description,`Responde con un toque:\n\n🏢 Fui a la oficina\n${u}&a=office\n\n❌ Hoy no fui\n${u}&a=none\n\n🏖️ Día libre\n${u}&a=vacation\n\nVer todas las opciones:\n${u}`);
+});
+test('RN-18 los avisos que ya estaban en el calendario reciben los enlaces nuevos una sola vez',async()=>{
+  const nuevo=cuerpoAviso('2026-10-08','r16','aaaa0005',C.slotOf('r16').title,'http://localhost:8765/');
+  const viejo={...nuevo,description:'Toca el enlace para registrar el día:\nhttp://localhost:8765/?d=2026-10-08&r=r16&n=aaaa0005'};
+  const a=await conSesion({},[viejo]);
+  try{
+    const ev=a.google.vivos(a.getS().calId).find(e=>e.extendedProperties?.private?.nonce==='aaaa0005');
+    assert.equal(ev.description,nuevo.description);
+    const parches=()=>a.google.log.filter(l=>l.m==='PATCH'&&l.b?.description).length;
+    const lecturas=()=>a.google.log.filter(l=>l.m==='GET'&&l.u.includes(encodeURIComponent('kind=reminder'))).length;
+    assert.equal(parches(),1); const antes=lecturas();
+    await a.evento('online'); await a.avanzar(1000);                    // otra sincronización completa
+    assert.ok(lecturas()>antes,'se volvieron a leer los avisos');
+    assert.equal(parches(),1,'no se vuelve a escribir');
+  }finally{ a.cerrar(); }
+});
+test('RN-18/19 responder con un toque: se registra sin abrir las opciones; con código de otro día, se piden',async()=>{
+  const ls={'ot-data-v2':{v:3,data:{},nonces:{abcdef12:{d:'2026-10-07',slot:'r10'}}}};
+  const abrir=q=>app({url:`http://localhost:8765/?${q}`,ls});
+  let a=await abrir('d=2026-10-07&r=r10&n=abcdef12&a=none');
+  try{
+    const S=a.getS(), e=S.log.at(-1);
+    assert.equal(S.data['2026-10-07'],undefined); assert.equal(S.skip['2026-10-07'],true);
+    assert.deepEqual([e.src,e.ok,e.note,e.slot,e.ref],['notif','ok','Hoy no fui','r10','abcdef12']);
+    assert.equal(a.$('#sheet').style.display,'none','sin hoja de opciones');
+    assert.ok(a.$('#toast').classList.contains('show')); assert.match(a.$('#toast-txt').innerHTML,/Hoy no fui/);
+    assert.equal(a.$('#toast-undo').hidden,true);
+    assert.equal(a.w.location.search,'','la URL queda limpia');
+  }finally{ a.cerrar(); }
+  a=await abrir('d=2026-10-07&r=r10&n=abcdef12&a=office');
+  try{
+    const S=a.getS();
+    assert.equal(S.data['2026-10-07'],'office'); assert.deepEqual([S.log.at(-1).src,S.log.at(-1).ok],['notif','ok']);
+    assert.equal(a.$('#sheet').style.display,'none'); assert.equal(a.$('#toast-undo').hidden,false,'se puede deshacer');
+  }finally{ a.cerrar(); }
+  a=await abrir('d=2026-10-07&r=r10&n=abcdef12&a=vacation');
+  try{ assert.equal(a.getS().data['2026-10-07'],'vacation'); }finally{ a.cerrar(); }
+  a=await abrir('d=2026-10-08&r=r10&n=abcdef12&a=office');           // el código es de otro día
+  try{
+    assert.equal(a.getS().data['2026-10-08'],undefined); assert.equal(a.getS().log.length,0);
+    assert.match(a.$('#sheet-body').innerHTML,/no coincide/); assert.ok(a.$('[data-pick="office"]'));
+  }finally{ a.cerrar(); }
+  a=await abrir('d=2026-10-07&r=r10&n=abcdef12&a=borrar');           // respuesta desconocida
+  try{ assert.equal(a.getS().log.length,0); assert.ok(a.$('[data-pick="none"]')); }finally{ a.cerrar(); }
+});
+test('RN-19 «Hoy no fui» llega a los otros dispositivos con el historial: no se crean ni se dejan avisos de ese día',async()=>{
+  assert.deepEqual(diasNoFui([{d:'2026-10-07',note:'Hoy no fui'},{d:'2026-10-08',note:'otra'},{d:'mal',note:'Hoy no fui'}],{'2026-10-01':true}),
+    {'2026-10-01':true,'2026-10-07':true});
+  const otro={id:'x001',ts:ms('2026-10-07T08:30:00'),d:'2026-10-07',from:null,to:null,src:'notif',note:'Hoy no fui',slot:'r10',ok:'ok',dev:'otro',up:true};
+  const a=await conSesion({ls:{'ot-data-v2':{v:3,data:{},log:[otro]}}},
+    [cuerpoAviso('2026-10-07','r16','aaaa0004',C.slotOf('r16').title,'http://localhost:8765/')]);
+  try{
+    const S=a.getS(), de=k=>a.google.vivos(S.calId).filter(e=>e.extendedProperties?.private?.date===k);
+    assert.equal(S.skip['2026-10-07'],undefined,'aquí no se tocó «Hoy no fui»…');
+    assert.equal(de('2026-10-07').length,0,'…pero el aviso de las 4:30 se borra y no se vuelve a crear');
+    assert.equal(de('2026-10-08').length,2,'los demás días sí tienen avisos');
   }finally{ a.cerrar(); }
 });
 // ── 1.6 Sincronización y conflictos ──

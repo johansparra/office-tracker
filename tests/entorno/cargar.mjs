@@ -11,6 +11,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { crearReloj, prng } from './reloj.mjs';
 import { crearGoogle } from './google-falso.mjs';
 import { crearFirebase } from './firebase-falso.mjs';
+import { aplicarComoV15, verificarComoV15 } from './como-v15.mjs';
 
 process.env.TZ='America/Bogota';
 const AQUI=path.dirname(fileURLToPath(import.meta.url));
@@ -51,7 +52,7 @@ function crearGIS(google){
 
 export async function cargarApp(op={}){
   const { impl='nueva', inicio='2026-10-07T09:00:00', url='http://localhost:8765/', ls={}, semilla=7,
-    conGoogle=true, conGIS=true, conFirebase=false, firebase:fbOp={}, antes } = op;
+    conGoogle=true, conGIS=true, conFirebase=false, firebase:fbOp={}, antes, comoV15=false } = op;
   const reloj=crearReloj(new Date(inicio).getTime());
   const google=conGoogle?crearGoogle(reloj):null;
   const gis=conGIS?crearGIS(google):null;
@@ -91,13 +92,18 @@ export async function cargarApp(op={}){
     for(const f of fs.readFileSync(path.join(REF,'orden.txt'),'utf8').split(/\s+/).filter(Boolean))
       new vm.Script(fs.readFileSync(path.join(REF,f),'utf8'),{filename:`referencia/${f}`}).runInContext(ctx);
   }else{
+    // comoV15: las reglas que cambiaron a propósito se cargan como eran en la v15 (como-v15.mjs), para comparar con la referencia
+    const usados=new Set();
     const cargar=archivo=>{
       if(modulos.has(archivo)) return modulos.get(archivo);
-      const m=new vm.SourceTextModule(fs.readFileSync(archivo,'utf8'),{identifier:pathToFileURL(archivo).href,context:ctx});
+      let src=fs.readFileSync(archivo,'utf8');
+      if(comoV15) src=aplicarComoV15(path.relative(path.join(RAIZ,'js'),archivo).split(path.sep).join('/'),src,usados);
+      const m=new vm.SourceTextModule(src,{identifier:pathToFileURL(archivo).href,context:ctx});
       modulos.set(archivo,m); return m;
     };
     const entrada=cargar(path.join(RAIZ,'js/app.js'));
     await entrada.link((spec,ref)=>cargar(path.resolve(path.dirname(fileURLToPath(ref.identifier)),spec)));
+    if(comoV15) verificarComoV15(usados);
     await entrada.evaluate();
   }
   w.document.dispatchEvent(new w.Event('DOMContentLoaded'));

@@ -2,7 +2,7 @@
 // META DEL MES (RN-01..RN-10). Funciones puras: dependen solo de sus argumentos.
 // Solo cuentan los días del mes visible.
 // ═══════════════════════════════════════════════════════════
-import { BASE } from './constantes.js';
+import { METAS } from './constantes.js';
 import { p2, toKey, fromKey, addD, monday, isWeekend, inMonth } from './fechas.js';
 import { holidays, getHol } from './festivos.js';
 
@@ -13,8 +13,11 @@ export function weeks(y,mo){
   while(m<=last){ ws.push({mon:new Date(m),sun:addD(m,6)}); m=addD(m,7); }
   return ws;
 }
+// RN-01: regla vigente para el mes (mo: 0–11) → { base, sem }
+export function reglaMes(y,mo){ const k=`${y}-${p2(mo+1)}`; return METAS.filter(r=>r.desde<=k).at(-1); }
 // data: { 'AAAA-MM-DD': 'office'|'vacation' } · now: hoy a las 00:00
 export function calcularMes(data,year,month,now){
+  const {base,sem}=reglaMes(year,month);
   const ws=weeks(year,month).map(w=>{
     let hasAdj=false,visited=0,openDays=0;
     for(let d=new Date(w.mon);d<=w.sun;d=addD(d,1)){
@@ -24,10 +27,10 @@ export function calcularMes(data,year,month,now){
       if(st==='office') visited++;                            // RN-06
       else if(d>=now&&!isWeekend(d)&&!h&&st!=='vacation') openDays++;
     }
-    return{...w,hasAdj,quota:hasAdj?1:2,visited,openDays};
+    return{...w,hasAdj,quota:hasAdj?sem-1:sem,visited,openDays};
   });
   const adjN=ws.filter(w=>w.hasAdj).length;
-  const target=Math.max(0,BASE-adjN);                         // RN-04
+  const target=Math.max(0,base-adjN);                         // RN-04
   const visited=ws.reduce((s,w)=>s+w.visited,0);
   const remaining=Math.max(0,target-visited);
   const pct=target>0?Math.min(100,Math.round(visited/target*100)):100;
@@ -36,7 +39,7 @@ export function calcularMes(data,year,month,now){
   const canMax=active.reduce((s,w)=>s+Math.min(Math.max(0,w.quota-w.visited),w.openDays),0);
   const mHols=Object.entries(holidays(year)).filter(([k])=>k.startsWith(`${year}-${p2(month+1)}`)).sort();
   const upHols=mHols.map(([k,n])=>({date:fromKey(k),name:n})).filter(h=>h.date>now);
-  // RN-07: días hábiles que quedan (lun–vie, sin festivo, sin marcar, desde hoy). Lo ideal son 2 por semana,
+  // RN-07: días hábiles que quedan (lun–vie, sin festivo, sin marcar, desde hoy). Lo ideal es la cuota de cada semana,
   // pero lo que manda es la meta del mes: si los días que faltan ≥ los que quedan, todos son obligatorios.
   const open=[];
   for(let d=new Date(Math.max(now,new Date(year,month,1)));inMonth(d,year,month);d=addD(d,1)){
