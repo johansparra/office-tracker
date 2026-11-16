@@ -113,7 +113,7 @@ Cada regla dice **dónde está en el código**, para cambiarla sin buscar, y tie
 |---|---|---|
 | RN-26 | **Todo cambio queda registrado** con: id único, fecha y hora exacta, día, estado anterior y nuevo, **origen** (Manual, Aviso ✓/⚠/?, Calendar, Deshecho) y dispositivo. | `logChange()` en [js/funcionalidades/historial/registro.js](js/funcionalidades/historial/registro.js); textos en [js/nucleo/registro.js](js/nucleo/registro.js) |
 | RN-27 | La hoja **"Office Tracker · Historial"** es **solo de agregar** (*append-only*): la app nunca borra ni modifica filas. | `syncSheet()` en [js/funcionalidades/historial/registro.js](js/funcionalidades/historial/registro.js); formato de filas en [js/adaptadores/google-sheets.js](js/adaptadores/google-sheets.js) |
-| RN-28 | Borrar un registro en la app solo lo **oculta** (en todos los dispositivos, vía pestaña *Ocultos* y Firestore). Si aún no había llegado a la hoja, se sube igual. Borrar registros **no cambia** los días marcados. | `deleteLog()` en [js/funcionalidades/historial/registro.js](js/funcionalidades/historial/registro.js) |
+| RN-28 | Borrar un registro (🗑) tiene **Deshacer** durante 5 s; si no se toca, se borra. Borrar en la app solo lo **oculta** (en todos los dispositivos, vía pestaña *Ocultos* y Firestore). Si aún no había llegado a la hoja, se sube igual. Borrar registros **no cambia** los días marcados. | `borrarConDeshacer()` y `deleteLog()` en [js/funcionalidades/historial/registro.js](js/funcionalidades/historial/registro.js) |
 | RN-29 | Un cambio que llega por Calendar y que ya está explicado por un registro de otro dispositivo **no se registra dos veces**. Solo las ediciones hechas directamente en Google Calendar quedan como origen *Calendar*. | `explained()` en [js/nucleo/conflictos.js](js/nucleo/conflictos.js) |
 | RN-30 | El historial de la app guarda hasta **1000 registros**. Los últimos **10** de cada día se escriben también en la descripción del evento en Google Calendar. | `MAX_LOG` en [js/funcionalidades/historial/registro.js](js/funcionalidades/historial/registro.js), `dayBody()` en [js/funcionalidades/sincronizacion/reconciliar.js](js/funcionalidades/sincronizacion/reconciliar.js) |
 
@@ -786,7 +786,7 @@ Un punto azul en la esquina de un día indica que ese cambio aún no se ha subid
 - Mientras la app habla con Google (subir un día, traer cambios, actualizar avisos, escribir en el log) aparece una **barra azul animada arriba de la pantalla**, el chip del encabezado gira con **Sincronizando** y la tarjeta de Google dice en qué paso va: *Buscando el calendario…*, *Sincronizando días…*, *Actualizando avisos…*, *Escribiendo en el log…*.
 - Al terminar, la tarjeta dice **Al día · HH:MM** con la hora de la última sincronización.
 - La **versión** de la app (`v19`, …) se ve arriba junto a *ScotiaTech · GBS* y al final de la página. Debe coincidir con la última publicada; si no, cierra y abre la app (en PC, **Ctrl+Shift+R**).
-- **Ver log**: en la tarjeta de historial, en el detalle de cada día y en la tarjeta de Google hay un enlace directo a la hoja de Google Sheets.
+- **Ver log**: en la tarjeta de historial, en el detalle de cada día y en las opciones de la tarjeta de Google (tócala para desplegarlas) hay un enlace directo a la hoja de Google Sheets.
 
 ---
 

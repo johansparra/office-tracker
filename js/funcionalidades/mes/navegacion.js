@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════
-// NAVEGACIÓN: cambiar de mes (botones y deslizar), cerrar hojas con Escape o tocando afuera
+// NAVEGACIÓN: cambiar de mes (botones, «Volver a hoy» y deslizar), cerrar hojas con Escape o tocando afuera
 // ═══════════════════════════════════════════════════════════
-import { S } from '../../estado/estado.js';
+import { S, now } from '../../estado/estado.js';
 import { hasToken } from '../../estado/almacenamiento.js';
 import { slideMonth, closeSheet } from '../../ui/movimiento.js';
 import { render } from '../../ui/render.js';
@@ -9,9 +9,8 @@ import { hideModal } from '../conexion/sesion.js';
 import { syncAll } from '../sincronizacion/sincronizar.js';
 
 export function goMonth(delta){
-  S.month+=delta;
-  if(S.month<0){S.month=11;S.year--;} else if(S.month>11){S.month=0;S.year++;}
-  S.showAllLog=false; render(); slideMonth(delta);
+  const t=S.year*12+S.month+delta; S.year=Math.floor(t/12); S.month=t-S.year*12;
+  S.showAllLog=false; render(); slideMonth(Math.sign(delta));
   if(hasToken()) syncAll();
 }
 export function iniciarNavegacion(){
@@ -24,6 +23,7 @@ export function iniciarNavegacion(){
   },{passive:true});
   document.getElementById('btn-prev').addEventListener('click',()=>goMonth(-1));
   document.getElementById('btn-next').addEventListener('click',()=>goMonth(1));
+  document.getElementById('btn-hoy').addEventListener('click',()=>goMonth((now.getFullYear()-S.year)*12+now.getMonth()-S.month));
   document.getElementById('sheet').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeSheet(); });
   document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeSheet(); hideModal(); } });
 }

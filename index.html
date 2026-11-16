@@ -33,7 +33,7 @@
     <section class="card hero" id="hero">
       <div class="month">
         <button class="nav-btn press" id="btn-prev" aria-label="Mes anterior"><svg class="ic" viewBox="0 0 16 16"><path d="M10 3.5 5.5 8l4.5 4.5"/></svg></button>
-        <h1 class="nav-title" id="nav-title" aria-live="polite"></h1>
+        <div class="nav-mid"><h1 class="nav-title" id="nav-title" aria-live="polite"></h1><button class="hoy-btn press" id="btn-hoy" hidden>Volver a hoy</button></div>
         <button class="nav-btn press" id="btn-next" aria-label="Mes siguiente"><svg class="ic" viewBox="0 0 16 16"><path d="M6 3.5 10.5 8 6 12.5"/></svg></button>
       </div>
       <div id="stats"></div>
@@ -49,14 +49,17 @@
         <span class="leg"><i class="sw t"></i>Hoy</span>
         <span class="leg"><i class="sw m"></i>Obligatorio</span>
       </div>
+      <div class="fest" id="festivos" hidden></div>
       <div class="hint"><svg class="ic" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 7.2v3.6M8 5.2v.1"/></svg>Toca para marcar · mantén para historial · desliza para cambiar de mes</div>
     </section>
 
-    <section class="card" id="festivos" hidden></section>
-    <section class="card" id="breakdown"></section>
+    <section class="card">
+      <details class="bk-d"><summary class="card-hd press"><span class="card-ttl">Semana a semana</span><span class="sum-r"><span class="card-sub" id="bk-sub"></span><span class="chev"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 6.2 8 9.8l3.5-3.6"/></svg></span></span></summary>
+      <div id="breakdown"></div></details>
+    </section>
     <section class="card" id="history"></section>
 
-    <footer class="footer">Meta = 8 (12 desde nov. 2026) − semanas con festivo o día libre · Solo cuentan los días del mes visible · Los datos se guardan en este dispositivo<br>Office Tracker <span id="app-ver2"></span></footer>
+    <footer class="footer">Meta del mes: 8 visitas hasta octubre de 2026 y 12 desde noviembre, menos una por cada semana con festivo o día libre · Solo cuentan los días del mes visible<br>Office Tracker <span id="app-ver2"></span></footer>
   </main>
 </div>
 

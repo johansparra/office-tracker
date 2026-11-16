@@ -20,12 +20,20 @@ export function renderConexion(){
     ?`<br><span class="rt-on">${IC.bolt}Tiempo real · ${esc(fbUser.email)}</span> · <button class="gcal-link" id="btn-fb-out">Salir</button>`
     :`<br><button class="gcal-link" id="btn-fb-in">${IC.bolt}Activar tiempo real</button>`;
   if(hasToken()){
-    gb.innerHTML=`<div class="gcal-ic">${IC.cal}</div>
+    // Conectado: una línea de estado; las acciones se despliegan al tocarla (se recuerda si estaba abierta)
+    const abierta=gb.querySelector('details')?.open;
+    gb.innerHTML=`<details class="gcal-d"${abierta?' open':''}><summary class="gcal-sum press"><div class="gcal-ic">${IC.cal}</div>
     <div class="gcal-status"><strong>${busy?'<i class="dot sync pulse"></i>':S.lastError?'<i class="dot warn"></i>':pc?'<i class="dot sync"></i>':'<i class="dot ok"></i>'}Google Calendar</strong>
-      ${busy?(S.step||'Sincronizando…'):S.lastError?'No se pudo sincronizar':pc?`${pc} cambio${pc>1?'s':''} por subir`:`Al día${S.lastSync?` · ${fmtClock(S.lastSync)}`:''}`}${err}
-      ${lc?`<button class="gcal-link" id="btn-legacy">Borrar ${lc} evento${lc>1?'s':''} viejo${lc>1?'s':''} del calendario principal</button><br>`:''}
-      ${S.sheetId?`<a class="gcal-link" href="${sheetUrl()}" target="_blank" rel="noopener">Ver log en Google Sheets</a> · `:''}<button class="gcal-link" id="btn-disconnect">Desconectar</button>${rt}</div>
-    <button class="gcal-btn press ${busy?'syncing':''}" id="btn-sync" aria-label="Sincronizar" ${busy?'disabled':''}>${IC.sync}${busy?'':'Sync'}</button>`;
+      ${busy?(S.step||'Sincronizando…'):S.lastError?'No se pudo sincronizar':pc?`${pc} cambio${pc>1?'s':''} por subir`:`Al día${S.lastSync?` · ${fmtClock(S.lastSync)}`:''}`}${err}</div>
+    <span class="chev">${IC.chev}</span></summary>
+    <div class="gcal-acts">
+      <button class="btn-s press ${busy?'syncing':''}" id="btn-sync" ${busy?'disabled':''}>${IC.sync}${busy?'Sincronizando…':'Sincronizar ahora'}</button>
+      ${S.sheetId?`<a class="btn-s press" href="${sheetUrl()}" target="_blank" rel="noopener">${IC.sheet}Ver historial en Google Sheets</a>`:''}
+      ${lc?`<button class="btn-s press" id="btn-legacy">${IC.trash}Borrar ${lc} evento${lc>1?'s':''} viejo${lc>1?'s':''} del calendario principal</button>`:''}
+      ${!fbListo()?'':fbUser?`<div class="gcal-rt"><span class="rt-on">${IC.bolt}Tiempo real · ${esc(fbUser.email)}</span><button class="gcal-link" id="btn-fb-out">Salir</button></div>`
+        :`<button class="btn-s press" id="btn-fb-in">${IC.bolt}Activar tiempo real</button>`}
+      <button class="btn-s btn-ghost press" id="btn-disconnect">Desconectar Google Calendar</button>
+    </div></details>`;
     chip.innerHTML=`<span class="chip">${busy?`<span class="spin">${IC.sync}</span>Sincronizando`:S.lastError?'<i class="dot warn"></i>Error':pc?`<i class="dot sync"></i>${pc} por subir`:fbUser?`<i class="dot ok"></i>${IC.bolt}En vivo`:'<i class="dot ok"></i>Al día'}</span>`;
   } else if(S.cid){
     gb.innerHTML=`<div class="gcal-ic">${IC.cal}</div>

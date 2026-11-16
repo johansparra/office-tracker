@@ -12,12 +12,16 @@ import { openDaySheet } from '../historial/historial-dia.js';
 
 const dayList=ks=>`<div class="must-days">${ks.map(k=>`<span>${fmtDay(k)}</span>`).join('')}</div>`;
 const hab=x=>`${x} día${x===1?'':'s'} hábil${x===1?'':'es'}`;
+// Cuota que se muestra por semana: no más que sus días hábiles dentro del mes (una semana partida no pide 3 de 1 día)
+const cuota=(w,y,m)=>Math.min(w.quota,Array.from({length:5},(_,i)=>addD(w.mon,i)).filter(d=>inMonth(d,y,m)&&!getHol(d)).length);
 
 // s: resultado de calcularMes() para el mes visible
 export function renderMes(s){
   const {year,month}=S;
   const mName=MONTHS[month].toLowerCase();
   document.getElementById('nav-title').textContent=`${MONTHS[month]} ${year}`;
+  document.getElementById('btn-hoy').hidden=year===now.getFullYear()&&month===now.getMonth();
+  const {sem}=reglaMes(year,month);
 
   // Resumen del mes
   const {past,tone,tipo}=estadoMes(s);
@@ -42,8 +46,8 @@ export function renderMes(s){
     <div class="segs ${s.done?'done':''}" role="img" aria-label="${s.visited} de ${s.target} visitas">${Array.from({length:n},(_,i)=>`<i class="seg ${i<s.visited||s.target===0?'on':''}"><b></b></i>`).join('')}</div>
     <div class="kpis">
       <div class="kpi"><div class="kpi-v">${s.target}</div><div class="kpi-l">Meta <b>${reglaMes(year,month).base}−${s.adjN}</b></div></div>
-      <div class="kpi"><div class="kpi-v">${s.adjN}</div><div class="kpi-l">Semanas con festivo</div></div>
-      <div class="kpi"><div class="kpi-v">${s.open.length}</div><div class="kpi-l">Días hábiles libres</div></div>
+      <div class="kpi"><div class="kpi-v">${s.adjN}</div><div class="kpi-l">Semanas con festivo o libre</div></div>
+      <div class="kpi"><div class="kpi-v">${s.open.length}</div><div class="kpi-l">Días hábiles que quedan</div></div>
     </div>
     ${msg}`;
 
@@ -53,9 +57,9 @@ export function renderMes(s){
 
   document.getElementById('weeks').innerHTML=s.ws.map(w=>{
     const days=Array.from({length:7},(_,i)=>addD(w.mon,i));
-    const wD=w.visited>=w.quota;
+    const q=cuota(w,year,month), wD=w.visited>=q;
     return `<div class="cal-grid">
-      <div class="week-ind ${wD?'done':w.hasAdj?'adj':''}" title="Semana: ${w.visited} de ${w.quota}">${wD?IC.check:w.visited}<small>/${w.quota}</small></div>
+      ${q?`<div class="week-ind ${wD?'done':w.hasAdj?'adj':''}" role="img" title="Semana: ${w.visited} de ${q}" aria-label="Semana: ${w.visited} de ${q}">${wD?IC.check:w.visited}<small>/${q}</small></div>`:'<div class="week-ind none"></div>'}
       ${days.map((date,di)=>{
         const k=toKey(date), inM=inMonth(date,year,month);
         const isTd=k===toKey(now),colH=getHol(date),st=S.data[k];
@@ -74,21 +78,18 @@ export function renderMes(s){
   // Festivos del mes
   const festEl=document.getElementById('festivos');
   festEl.hidden=!s.mHols.length;
-  festEl.innerHTML=s.mHols.length?`<div class="card-hd"><span class="card-ttl">Festivos de ${mName}</span><span class="card-sub">${FLAG} automáticos</span></div>`+
-    s.mHols.map(([k,n])=>{const d=fromKey(k),p=d<now;return `<div class="fest-row ${p?'past':''}">
-      <div class="fest-date"><b>${d.getDate()}</b><span>${DOW[d.getDay()]}</span></div>
-      <div><div class="fest-name">${n}</div><div class="fest-meta">${p?'Ya pasó':'Esa semana la cuota baja a 1'}</div></div>
-    </div>`;}).join(''):'';
+  festEl.innerHTML=s.mHols.map(([k,n])=>{const d=fromKey(k),p=d<now;return `<div class="fest-row ${p?'past':''}">${FLAG}<span class="fest-d">${DOW[d.getDay()]} ${d.getDate()}</span><span class="fest-name">${n}</span><span class="fest-meta">${p?'ya pasó':`esa semana: ${sem-1}`}</span></div>`;}).join('');
 
   // Desglose semanal
-  document.getElementById('breakdown').innerHTML=`<div class="card-hd"><span class="card-ttl">Semana a semana</span><span class="card-sub">cuota 2 · 1 con festivo</span></div>`+
-    s.ws.map(w=>{
+  document.getElementById('bk-sub').textContent=`cuota ${sem} · ${sem-1} con festivo o libre`;
+  document.getElementById('breakdown').innerHTML=s.ws.filter(w=>cuota(w,year,month)).map(w=>{
+      const q=cuota(w,year,month);
       const sl=`${w.mon.getDate()} ${MONTHS[w.mon.getMonth()].slice(0,3).toLowerCase()}`,el=`${w.sun.getDate()} ${MONTHS[w.sun.getMonth()].slice(0,3).toLowerCase()}`;
-      const wD=w.visited>=w.quota,p=w.quota>0?Math.min(1,w.visited/w.quota):1;
+      const wD=w.visited>=q,p=Math.min(1,w.visited/q);
       return `<div class="bk-row ${wD?'done':w.hasAdj?'adj':''}">
         <div class="bk-lbl">${sl} – ${el}</div>
         <div class="bk-bar-w"><div class="bk-bar" style="transform:scaleX(${p})"></div></div>
-        <div class="bk-val">${w.visited}/${w.quota}</div>
+        <div class="bk-val">${w.visited}/${q}</div>
         <div class="bk-ico">${wD?IC.check:w.hasAdj?FLAG:''}</div>
       </div>`;
     }).join('');

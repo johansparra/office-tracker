@@ -402,7 +402,7 @@ test('RN-27 la hoja es solo de agregar: nunca se borran ni cambian filas',async(
     await a.tocarDia('2026-10-08'); await a.avanzar(6000);
     const antes=filas();
     await a.tocarDia('2026-10-08'); await a.avanzar(6000);
-    await a.clic('#history .log-del'); await a.avanzar(100);
+    await a.clic('#history .log-del'); await a.avanzar(5100);
     a.confirmar(true); await a.clic('#btn-log-clear'); await a.avanzar(100);
     const despues=filas();
     assert.deepEqual(despues.slice(0,antes.length),antes,'las filas anteriores siguen iguales');
@@ -410,11 +410,25 @@ test('RN-27 la hoja es solo de agregar: nunca se borran ni cambian filas',async(
     assert.ok(!a.google.log.some(x=>x.u.includes('sheets')&&(x.m==='DELETE'||/clear|deleteDimension/.test(JSON.stringify(x.b||'')))));
   }finally{ a.cerrar(); }
 });
+test('RN-28 (v21) borrar un registro se puede deshacer durante 5 s; si no, se borra',async()=>{
+  const a=await conSesion();
+  try{
+    await a.tocarDia('2026-10-08'); await a.avanzar(6000); const id=a.getS().log[0].id;
+    await a.clic('#history .log-del');
+    assert.equal(a.$(`#history [data-del="${id}"]`),null,'se oculta al instante');
+    assert.equal(a.getS().hidden[id],undefined,'todavía no se borra');
+    await a.clic('#toast-undo'); await a.avanzar(6000);
+    assert.equal(a.getS().log.length,1); assert.equal(a.getS().hidden[id],undefined);
+    assert.ok(a.$(`#history [data-del="${id}"]`),'vuelve a la lista');
+    await a.clic('#history .log-del'); await a.tocarDia('2026-10-09');   // otro aviso confirma el borrado pendiente
+    assert.equal(a.getS().hidden[id],1);
+  }finally{ a.cerrar(); }
+});
 test('RN-28 borrar un registro solo lo oculta (también en «Ocultos») y no cambia los días',async()=>{
   const a=await conSesion();
   try{
     await a.tocarDia('2026-10-08'); const id=a.getS().log[0].id;
-    await a.clic('#history .log-del'); await a.avanzar(100);
+    await a.clic('#history .log-del'); await a.avanzar(5100);   // se borra cuando se va el aviso con «Deshacer»
     const S=a.getS();
     assert.equal(S.data['2026-10-08'],'office'); assert.equal(S.hidden[id],1); assert.equal(S.log.length,0);
     const oc=a.google.hojas.get(S.sheetId).tabs.find(t=>t.title==='Ocultos').filas;
@@ -473,4 +487,22 @@ test('fechas: claves, semana ISO y formato ISO con zona',()=>{
   assert.equal(F.isoWeek('2026-10-07'),'2026-W41'); assert.equal(F.isoWeek('2021-01-03'),'2020-W53'); assert.equal(F.isoWeek('2024-12-30'),'2025-W01');
   assert.equal(F.isoTs(ms('2026-10-03T21:29:05.123')),'2026-10-03T21:29:05.123-05:00');
   assert.equal(tipoValido('office'),true); assert.equal(tipoValido(null),true); assert.equal(tipoValido('otro'),false);
+});
+
+// ── Pantalla v21 (crítica de diseño): textos que salen de la regla del mes, semanas partidas y «Volver a hoy» ──
+test('v21 la pantalla usa la cuota del mes, no números fijos; una semana sin días hábiles del mes no pide visitas',async()=>{
+  const a=await app({inicio:'2026-11-16T08:00:00'});
+  try{
+    assert.equal(a.$('#bk-sub').textContent,'cuota 3 · 2 con festivo o libre');
+    assert.match(a.$('#festivos').textContent,/esa semana: 2/);
+    const ind=a.w.document.querySelectorAll('.week-ind');
+    assert.ok(ind[0].classList.contains('none'),'26 oct – 1 nov: solo domingo en noviembre');
+    assert.match(ind.at?.(-1)?.textContent??ind[ind.length-1].textContent,/\/1/,'30 nov: un solo día hábil');
+    assert.equal(a.w.document.querySelectorAll('#breakdown .bk-row').length,5);
+    assert.equal(a.$('#btn-hoy').hidden,true);
+    await a.clic('#btn-next'); await a.clic('#btn-next');
+    assert.equal(a.$('#btn-hoy').hidden,false);
+    await a.clic('#btn-hoy');
+    assert.equal(a.$('#nav-title').textContent,'Noviembre 2026'); assert.equal(a.$('#btn-hoy').hidden,true);
+  }finally{ a.cerrar(); }
 });

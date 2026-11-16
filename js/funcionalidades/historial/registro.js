@@ -12,6 +12,8 @@ import { ensureSheet, hojaPerdida, logRow, parseRow, agregarHistorial, agregarOc
 import { render } from '../../ui/render.js';
 import { fsLog, fsHide } from '../sincronizacion/tiempo-real.js';
 import { enqueue } from '../sincronizacion/sincronizar.js';
+import { avisoConDeshacer } from '../marcar-dia/marcar.js';
+import { IC } from '../../ui/iconos.js';
 
 const MAX_LOG=1000;   // RN-30
 const recortar=()=>{ if(S.log.length>MAX_LOG) S.log.splice(0,S.log.length-MAX_LOG); };
@@ -66,6 +68,13 @@ export async function pullSheet(){
 }
 // RN-28: borra registros del historial de la app. Los que aún no llegaron a la hoja se guardan aparte
 // para subirlos igual: lo borrado en la app sigue registrado en la hoja. Se oculta en todos los dispositivos.
+// Borrar desde la pantalla, con «Deshacer»: los registros se ocultan ya y se borran cuando el aviso se va
+export const borrando=new Set();
+export function borrarConDeshacer(ids,alCambiar=render){
+  const soltar=()=>ids.forEach(id=>borrando.delete(id));
+  ids.forEach(id=>borrando.add(id)); alCambiar();
+  avisoConDeshacer(`${IC.trash}Registro borrado`,()=>{ soltar(); alCambiar(); },()=>{ soltar(); deleteLog(ids); });
+}
 export function deleteLog(ids){
   const del=new Set(ids);
   for(const e of S.log) if(del.has(e.id)&&!e.up) S.logOut.push(e);

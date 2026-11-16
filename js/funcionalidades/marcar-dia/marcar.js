@@ -44,14 +44,18 @@ export function toggle(date){
   applyChange(key,siguienteEstado(date,S.data[key]||null),'manual');
 }
 
+// undoState: {key,prev} para un día, o {alDeshacer,alConfirmar} para otra acción (por ejemplo, borrar un registro)
 let undoState=null, undoTimer=null;
 function showUndo(key,prev,next){
-  undoState={key,prev};
-  showToast(`${tico(next)}${next?TYPE_UI[next]:'Quitado'} <small>${fmtDay(key)}</small>`,true);
+  showToast(`${tico(next)}${next?TYPE_UI[next]:'Quitado'} <small>${fmtDay(key)}</small>`,{key,prev});
 }
 // Aviso breve sin «Deshacer» (por ejemplo, «Hoy no fui» desde el enlace del aviso)
-export function showInfo(html){ undoState=null; showToast(html,false); }
+export function showInfo(html){ showToast(html,null); }
+// Acción con «Deshacer»: alConfirmar() corre cuando el aviso se va sin tocarlo (5 s, otro aviso o al salir de la app)
+export function avisoConDeshacer(html,alDeshacer,alConfirmar){ showToast(html,{alDeshacer,alConfirmar}); }
+function confirmarPendiente(){ const p=undoState; undoState=null; p?.alConfirmar?.(); }
 function showToast(html,undo){
+  confirmarPendiente(); undoState=undo;
   const t=document.getElementById('toast');
   document.getElementById('toast-txt').innerHTML=html;
   document.getElementById('toast-undo').hidden=!undo;
@@ -60,10 +64,12 @@ function showToast(html,undo){
   t.classList.add('show');
   clearTimeout(undoTimer); undoTimer=setTimeout(hideUndo,UNDO_MS);
 }
-function hideUndo(){ undoState=null; document.getElementById('toast').classList.remove('show'); }
+function hideUndo(){ confirmarPendiente(); document.getElementById('toast').classList.remove('show'); }
 function doUndo(){
-  if(!undoState) return;
-  const {key,prev}=undoState; hideUndo();
+  const u=undoState; if(!u) return;
+  undoState=null; hideUndo();
+  if(u.alDeshacer) return u.alDeshacer();
+  const {key,prev}=u;
   const cur=S.data[key]||null;
   if(prev) S.data[key]=prev; else delete S.data[key];
   logChange({d:key,from:cur,to:prev,src:'undo'});

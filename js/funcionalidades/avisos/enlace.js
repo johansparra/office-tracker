@@ -45,7 +45,7 @@ export async function openNotifSheet(link){
     const cur=S.data[link.d]||null;
     openSheet(`
       <h2>${fmtDayLong(link.d)}</h2>
-      <p>Aviso de las ${sl?.label||'—'} · ${okTxt()}${link.nonce?`<br><span class="ref">ref ${link.nonce}</span>`:''}</p>
+      <p>Aviso de las ${sl?.label||'—'} · ${okTxt()}</p>
       <div class="state-row">Estado actual ${tchip(cur)}</div>
       <div class="sheet-btns">
         <button class="btn-p press" data-pick="office">${IC.office}Fui a la oficina</button>

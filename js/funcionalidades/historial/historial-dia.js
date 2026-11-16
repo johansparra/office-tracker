@@ -9,10 +9,11 @@ import { srcBadge, srcText } from '../../nucleo/registro.js';
 import { sheetUrl } from '../../adaptadores/google-sheets.js';
 import { IC, FLAG, tchip, tico, esc } from '../../ui/iconos.js';
 import { openSheet, closeSheet } from '../../ui/movimiento.js';
-import { deleteLog } from './registro.js';
+import { borrando, borrarConDeshacer } from './registro.js';
+import { render } from '../../ui/render.js';
 
 export function openDaySheet(key){
-  const es=S.log.filter(e=>e.d===key).slice().reverse();
+  const es=S.log.filter(e=>e.d===key&&!borrando.has(e.id)).slice().reverse();
   const st=S.data[key]||null;
   const sync=!S.cid?'Solo en este dispositivo':S.pending[key]?'<span class="sync-t">Pendiente por subir</span>':
     S.evIds[key]?'<span class="ok-t">Guardado en Google Calendar ✓</span>':'—';
@@ -31,5 +32,5 @@ export function openDaySheet(key){
     ${S.sheetId?`<p><a class="card-link" href="${sheetUrl()}" target="_blank" rel="noopener">${IC.sheet}Ver el log completo en Google Sheets</a></p>`:''}
     <div class="sheet-btns"><button class="btn-s press" id="sheet-close">Cerrar</button></div>`);
   document.getElementById('sheet-close').addEventListener('click',closeSheet);
-  document.querySelectorAll('#sheet-body .log-del').forEach(el=>el.addEventListener('click',()=>{ deleteLog([el.dataset.del]); openDaySheet(key); }));
+  document.querySelectorAll('#sheet-body .log-del').forEach(el=>el.addEventListener('click',()=>borrarConDeshacer([el.dataset.del],()=>{ render(); if(document.getElementById('sheet').style.display!=='none') openDaySheet(key); })));
 }
