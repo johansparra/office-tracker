@@ -7,7 +7,7 @@ import { fromKey, fmtDayLong, fmtTs } from '../../nucleo/fechas.js';
 import { getHol } from '../../nucleo/festivos.js';
 import { srcBadge, srcText } from '../../nucleo/registro.js';
 import { sheetUrl } from '../../adaptadores/google-sheets.js';
-import { IC, FLAG, tchip, tico } from '../../ui/iconos.js';
+import { IC, FLAG, tchip, tico, esc } from '../../ui/iconos.js';
 import { openSheet, closeSheet } from '../../ui/movimiento.js';
 import { deleteLog } from './registro.js';
 
@@ -23,10 +23,10 @@ export function openDaySheet(key){
     <div class="state-row">${tchip(st)} ${sync}</div>
     <div class="day-log">${es.length?es.map(e=>{const [c,l]=srcBadge(e);return `
       <div class="dl-row">
-        <div class="dl-top"><span class="badge ${c}">${l}</span><span class="dl-ts">${fmtTs(e.ts)}</span>
-          <button class="log-del press" data-del="${e.id}" aria-label="Borrar este registro">${IC.trash}</button></div>
-        <div class="dl-chg">${tico(e.from)}${TYPE_UI[e.from]} <span class="t-null">→</span> ${tico(e.to)}${TYPE_UI[e.to]}</div>
-        <div class="dl-meta">${srcText(e)} · disp. ${e.dev}${e.dev===S.dev?' (este)':''} · id ${e.id}</div>
+        <div class="dl-top"><span class="badge ${c}">${esc(l)}</span><span class="dl-ts">${fmtTs(e.ts)}</span>
+          <button class="log-del press" data-del="${esc(e.id)}" aria-label="Borrar este registro">${IC.trash}</button></div>
+        <div class="dl-chg">${tico(e.from)}${esc(TYPE_UI[e.from])} <span class="t-null">→</span> ${tico(e.to)}${esc(TYPE_UI[e.to])}</div>
+        <div class="dl-meta">${esc(srcText(e))} · disp. ${esc(e.dev)}${e.dev===S.dev?' (este)':''} · id ${esc(e.id)}</div>
       </div>`;}).join(''):'<p>Sin cambios registrados para este día.</p>'}</div>
     ${S.sheetId?`<p><a class="card-link" href="${sheetUrl()}" target="_blank" rel="noopener">${IC.sheet}Ver el log completo en Google Sheets</a></p>`:''}
     <div class="sheet-btns"><button class="btn-s press" id="sheet-close">Cerrar</button></div>`);

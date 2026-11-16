@@ -5,6 +5,8 @@
 import { S } from '../../estado/estado.js';
 import { save, hasToken } from '../../estado/almacenamiento.js';
 import { isoTs } from '../../nucleo/fechas.js';
+import { entradaValida, idValido, soloCampos } from '../../nucleo/registro.js';
+import { reportar } from '../../adaptadores/errores.js';
 import { rid } from '../../adaptadores/aleatorio.js';
 import { ensureSheet, hojaPerdida, logRow, parseRow, agregarHistorial, agregarOcultos, leerNuevas } from '../../adaptadores/google-sheets.js';
 import { render } from '../../ui/render.js';
@@ -13,6 +15,9 @@ import { enqueue } from '../sincronizacion/sincronizar.js';
 
 const MAX_LOG=1000;   // RN-30
 const recortar=()=>{ if(S.log.length>MAX_LOG) S.log.splice(0,S.log.length-MAX_LOG); };
+// Ocultos: tope para que una hoja con miles de ids no llene el almacenamiento del dispositivo (se quitan los más viejos)
+export const MAX_OCULTOS=5000;
+export function recortarOcultos(){ const k=Object.keys(S.hidden); if(k.length>MAX_OCULTOS) for(const id of k.slice(0,k.length-MAX_OCULTOS)) delete S.hidden[id]; }
 
 // Cada cambio queda con origen, hora, dispositivo y un id único
 export function logChange(e){
@@ -45,11 +50,15 @@ export async function pullSheet(){
   await ensureSheet();
   const r=await leerNuevas();
   if(r?.notFound){ S.sheetId=null; hojaPerdida(); save(); return; }
-  for(const [id] of r.hid) if(id) S.hidden[id]=1;
-  const have=new Set(S.log.map(e=>e.id));
+  // La hoja la puede editar otra persona: solo entran ids y registros válidos, cada fila por separado
+  for(const [id] of r.hid) if(idValido(id)) S.hidden[id]=1;
+  recortarOcultos();
+  const have=new Set(S.log.map(e=>e.id)), ahora=Date.now();
   for(const row of r.rows){
     const e=parseRow(row);
-    if(e&&!have.has(e.id)&&!S.hidden[e.id]){ S.log.push(e); have.add(e.id); }
+    if(!e) continue;
+    if(!entradaValida(e,ahora)){ reportar('Fila inválida en la hoja del historial (se ignora)',new Error(JSON.stringify(row).slice(0,300)),'warn'); continue; }
+    if(!have.has(e.id)&&!S.hidden[e.id]){ S.log.push(soloCampos(e)); have.add(e.id); }
   }
   S.log=S.log.filter(e=>!S.hidden[e.id]).sort((a,b)=>a.ts-b.ts);
   recortar();

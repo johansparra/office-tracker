@@ -61,9 +61,11 @@ export async function openNotifSheet(link){
   };
   const d=fromKey(link.d); S.year=d.getFullYear(); S.month=d.getMonth(); render();
   if(link.a){
-    // RN-18: respuesta con un toque. Si el código no coincide con el día, se muestran las opciones para confirmar.
+    // RN-18: respuesta con un toque SOLO si el código del aviso se verificó para ese día. Sin código, con un código
+    // que no coincide o que no se pudo verificar (sin conexión), se muestran las opciones: un enlace armado por
+    // otra persona no puede cambiar tus días sin que lo confirmes.
     if(link.nonce) ok=await verifyNonce(link.d,link.nonce);
-    if(ok!=='bad'){ registrar(link,link.a,ok); return; }
+    if(ok==='ok'){ registrar(link,link.a,ok); return; }
     paint(); return;
   }
   paint();

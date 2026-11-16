@@ -93,7 +93,7 @@ Cada regla dice **dónde está en el código**, para cambiarla sin buscar, y tie
 | RN-15 | Hay dos avisos por día: **10:00 a. m.** "¿Vas a la oficina hoy?" y **4:30 p. m.** "¿Fuiste a la oficina hoy?", hora de Bogotá. | `SLOTS` en [js/nucleo/constantes.js](js/nucleo/constantes.js) |
 | RN-16 | Solo de **lunes a viernes**, sin festivos, en días **sin marcar**, y solo para horas que aún no pasaron. Se programan **21 días** hacia adelante. | `avisosDeseados()` en [js/nucleo/avisos.js](js/nucleo/avisos.js), `HORIZON` |
 | RN-17 | Al **responder** un día (*Fui a la oficina*, *Día libre* u *Hoy no fui*) se borran sus avisos, también el que ya sonó (si confirmas a las 11, no suena el de las 4:30). Sin respuesta, los avisos de hoy se quedan hasta que termina el día, para que puedas responder desde ellos; los de **días que ya pasaron** se borran en la siguiente sincronización, sin importar cuántos días lleves sin conectarte. El evento del día (🏢 / 🏖️) queda en el calendario como registro. | `avisoSobra()` en [js/nucleo/avisos.js](js/nucleo/avisos.js), aplicada en `syncRemindersForDate()` y `reconcileReminders()` de [js/funcionalidades/avisos/programar.js](js/funcionalidades/avisos/programar.js) |
-| RN-18 | Cada aviso trae **un enlace por respuesta** (*🏢 Fui a la oficina*, *❌ Hoy no fui*, *🏖️ Día libre*: se registra con un toque, sin pasar por las opciones) y uno que abre **todas las opciones**. Todos llevan un **código único**. Al abrirlo, la app verifica que el código corresponda a ese día: **Aviso ✓** (verificado), **Aviso ⚠** (no coincide) o **Aviso ?** (no se pudo verificar). Si el código no coincide, una respuesta con un toque no se registra: se muestran las opciones para que confirmes. Los avisos creados antes de la v19 reciben los enlaces nuevos en la siguiente sincronización (una sola vez). | `textoAviso()` en [js/nucleo/avisos.js](js/nucleo/avisos.js), `RESPUESTAS` en [js/nucleo/constantes.js](js/nucleo/constantes.js), `verifyNonce()` en [js/funcionalidades/avisos/enlace.js](js/funcionalidades/avisos/enlace.js) |
+| RN-18 | Cada aviso trae **un enlace por respuesta** (*🏢 Fui a la oficina*, *❌ Hoy no fui*, *🏖️ Día libre*: se registra con un toque, sin pasar por las opciones) y uno que abre **todas las opciones**. Todos llevan un **código único**. Al abrirlo, la app verifica que el código corresponda a ese día: **Aviso ✓** (verificado), **Aviso ⚠** (no coincide) o **Aviso ?** (no se pudo verificar). Una respuesta con un toque **solo se registra si el código se verificó** (Aviso ✓). Sin código, con un código que no coincide o que no se pudo verificar (por ejemplo sin conexión), se muestran las opciones para que confirmes: así un enlace armado por otra persona no cambia tus días (v20). Los avisos creados antes de la v19 reciben los enlaces nuevos en la siguiente sincronización (una sola vez). | `textoAviso()` en [js/nucleo/avisos.js](js/nucleo/avisos.js), `RESPUESTAS` en [js/nucleo/constantes.js](js/nucleo/constantes.js), `verifyNonce()` en [js/funcionalidades/avisos/enlace.js](js/funcionalidades/avisos/enlace.js) |
 | RN-19 | Desde el aviso se puede responder **Fui a la oficina**, **Día libre** u **Hoy no fui**. *Hoy no fui* no cambia el día, pero cancela el aviso que quede ese día y queda registrado. El registro llega a tus otros dispositivos con el historial compartido, así que ninguno vuelve a crear avisos para ese día. | `openNotifSheet()` y `registrar()` en [js/funcionalidades/avisos/enlace.js](js/funcionalidades/avisos/enlace.js), `diasNoFui()` en [js/nucleo/avisos.js](js/nucleo/avisos.js) |
 
 ### 1.6 Sincronización y conflictos
@@ -266,15 +266,19 @@ flowchart TD
 |---|---|
 | [README.md](README.md) | Este documento: reglas de negocio, arquitectura, configuración y uso. |
 | [docs/FIREBASE.md](docs/FIREBASE.md) | Guía paso a paso de Firebase en tres fases: A (tiempo real, **implementada**), B (notificaciones push con la app cerrada) y C (cambios en Google Calendar al instante). |
+| [firestore.rules](firestore.rules) | Reglas de seguridad de Firestore (se publican a mano en la consola, paso A5): solo el dueño registrado en `duenos/{uid}` y solo la forma de datos que escribe la app. |
 
 ### Archivos de herramientas de desarrollo (no son parte de la app)
 
 | Archivo | Qué es | ¿Afecta la app? |
 |---|---|---|
 | [CLAUDE.md](CLAUDE.md) | Instrucciones para **Claude Code** (el asistente de IA usado para desarrollar): cómo está armado el código y qué convenciones seguir. | No. Solo lo lee el asistente. |
-| `.claude/skills/`, `skills-lock.json` | *Skills* de Claude Code: guías de diseño y animación que el asistente consulta al trabajar en la interfaz. | No. La app nunca los carga. |
+| `.claude/skills/`, `skills-lock.json` | *Skills* de Claude Code: guías de diseño y animación que el asistente consulta al trabajar en la interfaz (entre ellas `impeccable`, de pbakaus/impeccable, licencia Apache 2.0), y `security-audit` (de Cloudflare), la auditoría de seguridad obligatoria antes de publicar. | No. La app nunca los carga. |
+| `.claude/settings.json` | Plugins de Claude Code para este proyecto: **superpowers** (proceso: TDD, depuración, planes, revisión) y **ponytail** (la solución más simple que funcione). Al abrir el proyecto, Claude Code pide confirmar el marketplace e instalarlos. | No. Solo afecta al asistente. |
+| `.githooks/pre-commit`, `seguridad/` | Control de la auditoría de seguridad: el hook bloquea cualquier commit que cambie la app (`index.html`, `sw.js`, `manifest.json`, `css/`, `js/`) si ese código no pasó por la auditoría o quedan hallazgos confirmados. `seguridad/auditoria.mjs` valida el resultado y guarda en `seguridad/ultima-auditoria.json` la huella del código auditado (solo huella y conteos: los informes quedan fuera del repo). Ver [Publicar actualizaciones](#-publicar-actualizaciones). | No. La app nunca los carga. |
 | `graphify-out/` | Grafo de conocimiento del código generado por la herramienta **graphify** (`graph.html` se abre en el navegador; `GRAPH_REPORT.md` resume la arquitectura). Sirve para navegar el código y responder preguntas sobre él. | No. Se regenera con `/graphify` en Claude Code cuando cambia la estructura. |
 | `.graphifyignore` | Le dice a graphify qué carpetas ignorar. | No. |
+| `.gitignore`, `pruebas-locales/` | `pruebas-locales/seguridad.html` es una página para confirmar con tus cuentas reales lo que el código no puede responder (calendarios compartidos, quién edita la hoja, reglas de Firestore, iframe). Se sirve en local y **nunca se sube**: `.gitignore` la excluye. | No. |
 
 > GitHub Pages publica todo el repositorio, incluidos estos archivos. No pasa nada: no tienen datos sensibles y el navegador solo carga lo que pide `index.html`.
 
@@ -410,6 +414,7 @@ npm test
 | [reglas.test.mjs](tests/reglas.test.mjs) | Cada regla de negocio RN-01 a RN-30, con valores esperados escritos a mano (por ejemplo, los festivos oficiales de 2026 o el ejemplo del 26 de octubre). | 43 pruebas |
 | [paridad.test.mjs](tests/paridad.test.mjs) | Cada función del núcleo da el mismo resultado que la original de la v15 en miles de entradas: festivos 1900–2200, la meta de cada mes de 2024 a octubre 2026 con datos aleatorios, cada fecha 2020–2030, títulos y eventos de avisos (salvo su texto, que cambió en la v19), filas de la hoja. | 9 pruebas |
 | [robustez.test.mjs](tests/robustez.test.mjs) | El control de errores: datos guardados dañados, entradas inválidas, Firestore con datos raros o que rechaza escrituras, Google sin red, almacenamiento lleno, una tarjeta que falla. | 10 pruebas |
+| [seguridad.test.mjs](tests/seguridad.test.mjs) | Una prueba por hallazgo de la auditoría de seguridad: enlaces sin código verificado, HTML desde la hoja o Firestore, errores con HTML, calendarios ajenos, datos a Calendar, registros con fecha futura, ids ocultos inválidos y la app dentro de un iframe. | 11 pruebas |
 | [estructura.test.mjs](tests/estructura.test.mjs) | Las reglas de arquitectura de la sección 4.1, la lista de `sw.js`, que existan los archivos que piden `sw.js`, el manifiesto e `index.html`, la versión y que no haya `catch` vacíos. | 10 pruebas |
 
 **Cómo funciona el entorno de pruebas** ([tests/entorno/](tests/entorno/)): la app corre en un navegador simulado (jsdom) con un reloj falso que solo avanza cuando la prueba lo pide, y con Google Calendar, Drive, Sheets, Google Identity Services y Firebase falsos que guardan sus datos en memoria y registran cada llamada. Así cada escenario es determinista y se puede repetir idéntico.
@@ -710,7 +715,18 @@ La app programa en el calendario Office Tracker dos avisos de lunes a viernes (*
 
 ### 🔄 Publicar actualizaciones
 
-Cada vez que subas cambios a GitHub Pages, abre `sw.js` y sube la versión (`const VERSION = 'v19'` → `'v20'`…), y pon el mismo valor en `APP_VER` dentro de `js/nucleo/constantes.js` (sale en la columna *Versión app* del log). Si agregaste un archivo nuevo en `js/`, súmalo también a la lista `JS` de `sw.js`. Antes de publicar, corre las pruebas (`cd tests && npm test`, ver sección 4.5). La app carga el HTML, el JS y el CSS desde la red primero, así que basta con cerrarla y abrirla para ver la versión nueva.
+Cada vez que subas cambios a GitHub Pages, abre `sw.js` y sube la versión (`const VERSION = 'v19'` → `'v20'`…), y pon el mismo valor en `APP_VER` dentro de `js/nucleo/constantes.js` (sale en la columna *Versión app* del log). Si agregaste un archivo nuevo en `js/`, súmalo también a la lista `JS` de `sw.js`. Antes de publicar, corre las pruebas (`cd tests && npm test`, ver sección 4.5).
+
+**Auditoría de seguridad obligatoria.** Ningún commit que cambie la app pasa sin ella (lo impide `.githooks/pre-commit`; actívalo una vez por clon con `git config core.hooksPath .githooks`). Con el cambio ya hecho y la versión ya subida:
+
+1. En Claude Code, pide la auditoría completa (*«haz una auditoría de seguridad de este código»*, skill `security-audit`). Los informes quedan en `~/security-audit-skill/office-tracker/run-N`, **fuera del repositorio**: GitHub Pages publica todo el repo y no deben quedar vulnerabilidades a la vista.
+2. Corrige los hallazgos confirmados y vuelve a auditar lo corregido.
+3. `node seguridad/auditoria.mjs registrar ~/security-audit-skill/office-tracker/run-N` y `git add seguridad/ultima-auditoria.json`.
+4. Haz el commit. Si cambias cualquier archivo de la app después de registrar, la huella ya no coincide y hay que auditar de nuevo.
+
+Un hallazgo que decidas no corregir se agrega a mano en `riesgos_aceptados` de `seguridad/ultima-auditoria.json` (`fingerprint`, `motivo`, `fecha`).
+
+La app carga el HTML, el JS y el CSS desde la red primero, así que basta con cerrarla y abrirla para ver la versión nueva.
 
 ---
 

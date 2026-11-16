@@ -1,0 +1,13 @@
+{
+  "huella": "1d45e9edbf585786be51f68c074579278ed6b0296834fa1d5f077fd7856eb7af",
+  "fecha": "2026-11-16T19:52:37.860Z",
+  "version": "v20",
+  "commit_base": "3284a7b",
+  "run": "~/security-audit-skill/office-tracker/run-2",
+  "perfil": "quick",
+  "confirmados": 0,
+  "por_validar": 0,
+  "descartados": 1,
+  "confirmados_abiertos": [],
+  "riesgos_aceptados": []
+}

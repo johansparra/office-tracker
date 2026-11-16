@@ -12,7 +12,7 @@ import { gcal } from './google-api.js';
 
 const enc=encodeURIComponent;
 export const SHEETS='https://sheets.googleapis.com/v4/spreadsheets', DRIVE='https://www.googleapis.com/drive/v3/files';
-export const sheetUrl=()=>`https://docs.google.com/spreadsheets/d/${S.sheetId}/edit`;
+export const sheetUrl=()=>`https://docs.google.com/spreadsheets/d/${enc(S.sheetId)}/edit`;
 
 let sheetReady=false;   // la hoja ya se revisó en esta sesión
 let sheetRead=0;        // filas del Historial ya leídas en esta sesión (después se lee solo lo nuevo)
@@ -82,9 +82,10 @@ export function logRow(e,upTs){
     JSON.stringify({id:e.id,ts:e.ts,d:e.d,from:e.from??null,to:e.to??null,src:e.src,dev:e.dev,slot:e.slot,ok:e.ok,ref:e.ref,note:e.note})];
 }
 // Fila de la hoja → registro. Filas viejas sin la columna JSON se reconstruyen desde las columnas legibles.
+// Quien valida el registro es quien lo usa (pullSheet, con entradaValida): la hoja la puede editar otra persona.
 const UI_TYPE={'Oficina':'office','Día libre':'vacation'};
 export function parseRow(r){
-  try{ if(r[22]) return {...JSON.parse(r[22]),up:true}; }catch(_){ /* JSON dañado: se intenta con las columnas legibles */ }
+  try{ if(r[22]){ const o=JSON.parse(r[22]); if(o&&typeof o==='object'&&!Array.isArray(o)) return {...o,up:true}; } }catch(_){ /* JSON dañado: se intenta con las columnas legibles */ }
   const ts=Date.parse(r[0]), id=r[2], d=r[6];
   if(!id||!/^\d{4}-\d{2}-\d{2}$/.test(d||'')||isNaN(ts)) return null;
   const o=r[5]||'', src=o==='Calendar'?'calendar':o==='Deshecho'?'undo':o.startsWith('Aviso')?'notif':'manual';

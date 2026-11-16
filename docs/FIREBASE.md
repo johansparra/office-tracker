@@ -140,20 +140,19 @@ Datos que vas a ir anotando (guárdalos en un lugar seguro, **no** en el reposit
 
 ### A5. Reglas de seguridad (solo tú puedes leer y escribir tus datos)
 
-1. **Firestore Database** → pestaña **Reglas**.
-2. Reemplaza todo el contenido por:
-   ```
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       // Cada usuario solo puede leer y escribir dentro de users/{su uid}
-       match /users/{uid}/{document=**} {
-         allow read, write: if request.auth != null && request.auth.uid == uid;
-       }
-     }
-   }
-   ```
-3. **Publicar**.
+Las reglas están en el archivo [`firestore.rules`](../firestore.rules) del repositorio (desde la v20). Hacen dos cosas:
+
+- **Solo tú.** La configuración de Firebase es pública (está en la app) y cualquier persona con cuenta de Google puede iniciar sesión en tu proyecto. Con las reglas viejas (`request.auth.uid == uid`) esa persona podía escribir en *su propia* carpeta y gastarse la cuota diaria gratuita de tu proyecto, con lo que el tiempo real dejaba de funcionar para ti ese día. Ahora además de iniciar sesión, tu uid debe estar en la colección `duenos`, que solo puedes crear tú desde la consola.
+- **Solo lo que la app escribe.** `days`, `log` y `hidden` solo aceptan los campos de la app, con valores conocidos y textos cortos.
+
+1. Inicia sesión una vez en la app con **Activar tiempo real** (así se crea tu usuario).
+2. **Authentication** → **Users** → copia tu **UID de usuario**.
+3. **Firestore Database** → **Datos** → **Iniciar colección** → ID de colección `duenos` → **ID de documento:** pega tu UID → agrega un campo cualquiera (por ejemplo `nota` = `dueño`) → **Guardar**.
+4. **Firestore Database** → pestaña **Reglas** → reemplaza todo por el contenido de [`firestore.rules`](../firestore.rules) → **Publicar**.
+5. Comprueba: abre la app y marca un día; debe seguir sincronizando. Si aparece «Firebase: sin permiso», revisa que el ID del documento en `duenos` sea exactamente tu UID.
+6. Recomendado: **App Check** (Compilación → App Check) con reCAPTCHA Enterprise para la app web, y luego **Aplicar** a Cloud Firestore. Así solo tu sitio puede usar el proyecto.
+
+> Cada vez que la app lee o escribe, la regla consulta `duenos/{tu uid}`: cuenta como una lectura más dentro de la cuota gratuita (50 000 al día), de sobra para un usuario.
 
 ### A6. Restringir la API key (recomendado)
 
@@ -169,11 +168,11 @@ Datos que vas a ir anotando (guárdalos en un lugar seguro, **no** en el reposit
 ### A7. Cómo se guardarían los datos
 
 ```
+duenos/{tu uid}            { nota }                 ← lo creas tú (paso A5); da acceso a users/{tu uid}
 users/{tu uid}/
-├── days/{AAAA-MM-DD}      { type: "office" | "vacation", dev, updatedAt }
-├── log/{id del evento}    { ts, d, from, to, src, dev, slot, ok, ref, note }
-├── hidden/{id del evento} { ts, dev }              ← registros borrados en la app
-└── meta/settings          { calId, sheetId }
+├── days/{AAAA-MM-DD}      { type: "office" | "vacation" | null, ts, dev }
+├── log/{id del evento}    { id, ts, d, from, to, src, dev, slot, ok, ref, note }
+└── hidden/{id del evento} { ts, dev }              ← registros borrados en la app
 ```
 
 ### A8. Qué cambió en el código (implementado en v13)

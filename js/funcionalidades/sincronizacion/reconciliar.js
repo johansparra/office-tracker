@@ -21,9 +21,12 @@ import { fsDay } from './tiempo-real.js';
 export async function ensureCalendar(){
   let found;
   try{
-    const r=await listarCalendarios();
-    found=(r?.items||[]).filter(c=>c.summary===CAL_NAME&&!c.deleted).map(c=>c.id).sort();
-    S.account=(r?.items||[]).find(c=>c.primary)?.id||S.account;   // el id del calendario principal es el correo (para el log)
+    const r=await listarCalendarios(), items=r?.items||[];
+    const prim=items.find(c=>c.primary)?.id;   // el id del calendario principal es el correo (para el log)
+    // Seguridad: solo calendarios de ESTA cuenta. Uno con el mismo nombre que otra persona te compartió
+    // (dataOwner distinto) no se adopta, no se le copia nada y no se borra.
+    found=items.filter(c=>c.summary===CAL_NAME&&!c.deleted&&(!prim||!c.dataOwner||c.dataOwner===prim)).map(c=>c.id).sort();
+    S.account=prim||S.account;
   }catch(e){
     if(e instanceof AuthError) throw e;
     if(e.status||!S.calId||!S.calChecked) throw e;   // error de Google: se muestra tal cual
@@ -48,16 +51,19 @@ export async function ensureCalendar(){
 
 // ── Eventos de día (la copia en Calendar) ──
 // RN-30: los últimos 10 registros del día quedan en la descripción del evento
+// Seguridad: a Google solo van textos cortos y valores conocidos, aunque un registro venga dañado
+const txt=v=>typeof v==='string'||typeof v==='number'?String(v).slice(0,64):'';
+const SRC_OK=['manual','undo','calendar','notif'], VER_OK=['ok','bad','unknown'];
 export function dayBody(key,type){
   const hist=S.log.filter(e=>e.d===key).slice(-10);
   const last=hist[hist.length-1]||{};
-  const lines=hist.map(e=>`${fmtTs(e.ts)} · ${TYPE_LBL[e.from]} → ${TYPE_LBL[e.to]} · ${srcText(e)} · disp. ${e.dev}`);
+  const lines=hist.map(e=>`${fmtTs(e.ts)} · ${TYPE_LBL[e.from]} → ${TYPE_LBL[e.to]} · ${srcText(e)} · disp. ${txt(e.dev).replace(/[<>]/g,'')}`);
   return {
     summary:TYPE_LBL[type], status:'confirmed',
     start:{date:key}, end:{date:toKey(addD(fromKey(key),1))},
     description:`Registrado por Office Tracker.\n\nHistorial de este día:\n${lines.join('\n')||'—'}`,
     extendedProperties:{private:{appId:APP_ID,kind:'day',type,
-      src:last.src||'',ts:String(last.ts||''),dev:last.dev||'',ref:last.ref||'',ver:last.ok||''}}
+      src:SRC_OK.includes(last.src)?last.src:'',ts:Number.isFinite(last.ts)&&last.ts?String(last.ts):'',dev:txt(last.dev),ref:/^[0-9a-f]{1,32}$/.test(last.ref)?last.ref:'',ver:VER_OK.includes(last.ok)?last.ok:''}}
   };
 }
 // Lleva a Calendar el estado local de un día. Nunca duplica.

@@ -1,0 +1,14 @@
+{
+  "extraKnownMarketplaces": {
+    "superpowers-dev": {
+      "source": { "source": "github", "repo": "obra/superpowers" }
+    },
+    "ponytail": {
+      "source": { "source": "github", "repo": "dietrichgebert/ponytail" }
+    }
+  },
+  "enabledPlugins": {
+    "superpowers@superpowers-dev": true,
+    "ponytail@ponytail": true
+  }
+}

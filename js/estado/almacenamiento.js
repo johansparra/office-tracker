@@ -4,7 +4,7 @@
 import { S } from './estado.js';
 import { SCOPE, TIPOS } from '../nucleo/constantes.js';
 import { esClave } from '../nucleo/fechas.js';
-import { entradaValida } from '../nucleo/registro.js';
+import { entradaValida, idValido, soloCampos } from '../nucleo/registro.js';
 import { rid } from '../adaptadores/aleatorio.js';
 import { reportar } from '../adaptadores/errores.js';
 
@@ -25,7 +25,8 @@ function limpiarDias(d){
   for(const [k,v] of Object.entries(obj(d))) if(esClave(k)&&TIPOS.includes(v)) r[k]=v; else reportar('Día descartado al leer',new Error(`${k} = ${JSON.stringify(v)}`),'warn');
   return r;
 }
-const limpiarLog=l=>arr(l).filter(e=>entradaValida(e)||(reportar('Registro descartado al leer',new Error(JSON.stringify(e)),'warn'),false));
+const limpiarLog=l=>{ const ahora=Date.now(); return arr(l).filter(e=>entradaValida(e,ahora)||(reportar('Registro descartado al leer',new Error(JSON.stringify(e).slice(0,300)),'warn'),false)).map(soloCampos); };
+const limpiarOcultos=h=>Object.fromEntries(Object.keys(obj(h)).filter(idValido).map(id=>[id,1]));
 
 export function load(){
   let raw=null;
@@ -37,7 +38,7 @@ export function load(){
       if(p.v===3){
         Object.assign(S,{evIds:obj(p.evIds),pending:obj(p.pending),log:limpiarLog(p.log),rem:obj(p.rem),
           nonces:obj(p.nonces),skip:obj(p.skip),legacy:obj(p.legacy),logOut:limpiarLog(p.logOut),sheetId:p.sheetId||null,account:p.account||null,
-          hidden:obj(p.hidden),hideOut:arr(p.hideOut).filter(h=>h&&typeof h.id==='string')});
+          hidden:limpiarOcultos(p.hidden),hideOut:arr(p.hideOut).filter(h=>h&&typeof h.id==='string')});
       }else{
         // Migración desde v1/v2: los eventos viejos están en el calendario principal.
         // Se guardan aparte para poder borrarlos, y todo lo local se sube al calendario nuevo.

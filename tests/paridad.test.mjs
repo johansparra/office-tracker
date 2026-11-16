@@ -79,11 +79,13 @@ test('interpretar eventos de Calendar: idéntico para todas las combinaciones de
 
 test('textos del origen de un registro: idénticos',()=>{
   const [b,t]=v15('[srcBadge,srcText]');
-  for(const src of ['manual','undo','calendar','notif','otro']) for(const ok of ['ok','bad','unknown',undefined]) for(const slot of ['r10','r16','r99',undefined])
+  for(const src of ['manual','undo','calendar','notif']) for(const ok of ['ok','bad','unknown',undefined]) for(const slot of ['r10','r16','r99',undefined])
     for(const extra of [{},{ref:'abc12345'},{note:'Hoy no fui'},{ref:'x',note:'y'}]){
       const e={src,ok,slot,...extra};
       igual(R.srcBadge(e),b(e)); assert.equal(R.srcText(e),t(e));
     }
+  // Cambio a propósito (v20, seguridad): un origen que no es de la app ya no se muestra tal cual
+  igual(R.srcBadge({src:'<b>otro</b>'}),['b-manual','Desconocido']); assert.equal(R.srcText({src:'<b>otro</b>'}),'Desconocido');
 });
 
 test('registro ya explicado y último registro: idénticos con 500 historiales al azar',()=>{

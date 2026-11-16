@@ -31,18 +31,22 @@ export const crearCalendario=()=>gcal('POST','/calendars',{summary:CAL_NAME,time
 export const borrarCalendario=()=>gcal('DELETE',calPath());
 
 // Copia los días (no los avisos) de un calendario duplicado al principal y borra el duplicado.
+// Si no se pudo leer el duplicado o falló una copia, NO se borra (se reintenta en otra sincronización).
 export async function mergeCalendar(from,to){
   let pageToken='';
   do{
     const r=await gcal('GET',`/calendars/${enc(from)}/events?maxResults=250${pageToken?`&pageToken=${enc(pageToken)}`:''}`);
+    if(r?.notFound) return false;
     for(const ev of r?.items||[]){
       if(ev.status==='cancelled'||esAviso(ev)) continue;
       const {summary,description,start,end,recurrence,transparency,extendedProperties}=ev;
-      await gcal('POST',`/calendars/${enc(to)}/events`,{summary,description,start,end,recurrence,transparency,extendedProperties});
+      const c=await gcal('POST',`/calendars/${enc(to)}/events`,{summary,description,start,end,recurrence,transparency,extendedProperties});
+      if(c?.notFound) return false;
     }
     pageToken=r?.nextPageToken||'';
   }while(pageToken);
   await gcal('DELETE',`/calendars/${enc(from)}`);
+  return true;
 }
 // Borra un evento del calendario principal con otro token (limpieza única de la v2)
 export const borrarDelPrincipal=(id,token)=>fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${enc(id)}`,

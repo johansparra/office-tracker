@@ -1,0 +1,4 @@
+#!/bin/sh
+# Bloquea el commit si cambia la app sin auditoría de seguridad al día (ver seguridad/auditoria.mjs).
+# Se activa una vez por clon con: git config core.hooksPath .githooks
+exec node "$(git rev-parse --show-toplevel)/seguridad/auditoria.mjs" verificar

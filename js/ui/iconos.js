@@ -22,5 +22,10 @@ export const IC={
   sheet:svg('<rect x="2.5" y="2" width="11" height="12" rx="1.8"/><path d="M2.5 6h11M2.5 10h11M6.5 6v8"/>'),
 };
 export const FLAG='<i class="co" aria-label="Festivo Colombia"></i>';
-export const tchip=t=>`<span class="tchip t-${t||'null'}">${IC[t||'null']}${TYPE_UI[t||'null']}</span>`;
-export const tico=t=>`<span class="t-${t||'null'}">${IC[t||'null']}</span>`;
+// Estado de un día solo de los valores conocidos: nunca se arma una clase o un ícono con un texto que llegó de afuera
+const est=t=>t==='office'||t==='vacation'?t:'null';
+export const tchip=t=>`<span class="tchip t-${est(t)}">${IC[est(t)]}${TYPE_UI[est(t)]}</span>`;
+export const tico=t=>`<span class="t-${est(t)}">${IC[est(t)]}</span>`;
+// ═══ Escapar texto para innerHTML (seguridad): todo dato que no sea de la app pasa por aquí ═══
+const ENT={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
+export const esc=s=>String(s??'').replace(/[&<>"']/g,c=>ENT[c]);

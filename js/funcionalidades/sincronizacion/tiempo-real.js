@@ -6,7 +6,7 @@ import { S } from '../../estado/estado.js';
 import { save } from '../../estado/almacenamiento.js';
 import { esClave } from '../../nucleo/fechas.js';
 import { tipoValido } from '../../nucleo/marcado.js';
-import { entradaValida } from '../../nucleo/registro.js';
+import { entradaValida, idValido, soloCampos } from '../../nucleo/registro.js';
 import { ultimoRegistro, decidirDiaRemoto } from '../../nucleo/conflictos.js';
 import { reportar } from '../../adaptadores/errores.js';
 import { iniciarFirebase, setUsuario, fbOn, clean, escucharDias, escucharLog, escucharOcultos, escribir, lote } from '../../adaptadores/firestore.js';
@@ -49,7 +49,8 @@ export function fsLog(e){
 }
 export function fsHide(ids){
   if(!fbOn()) return;
-  lote(ids.map(id=>['hidden',id,{ts:Date.now(),dev:S.dev}])).catch(fbErr);
+  ids=ids.filter(idValido);   // un id raro (de la hoja) haría fallar todo el lote
+  if(ids.length) lote(ids.map(id=>['hidden',id,{ts:Date.now(),dev:S.dev}])).catch(fbErr);
 }
 
 // ── Lecturas en tiempo real ──
@@ -63,9 +64,11 @@ function onFsDays(snap){
     const ds=ch.doc.id, v=ch.doc.data();
     if(!esClave(ds)||!tipoValido(v?.type)){ reportar('Día inválido recibido de Firestore (se ignora)',new Error(`${ds} = ${JSON.stringify(v)}`),'warn'); continue; }
     const fs={type:v.type||null,ts:v.ts||0,dev:v.dev};
-    const lt=S.data[ds]||null;
-    if(decidirDiaRemoto({local:lt,remoto:fs,enVentana:!!timers[ds],ultimoLog:ultimoRegistro(S.log,ds)})==='reescribir'){
-      fsDay(ds,lt,Math.max(Date.now(),fs.ts+1)); continue;   // lo local es más nuevo
+    const lt=S.data[ds]||null, ul=ultimoRegistro(S.log,ds);
+    if(decidirDiaRemoto({local:lt,remoto:fs,enVentana:!!timers[ds],ultimoLog:ul})==='reescribir'){
+      // lo local es más nuevo. La hora nueva nunca queda por debajo del último registro: así el otro dispositivo
+      // la acepta y no se reescriben uno al otro sin fin
+      fsDay(ds,lt,Math.max(Date.now(),fs.ts+1,ul)); continue;
     }
     S.fs[ds]=fs;
     if(lt!==fs.type){ if(fs.type) S.data[ds]=fs.type; else delete S.data[ds]; }
@@ -78,13 +81,13 @@ function onFsDays(snap){
 }
 function onFsLog(snap){
   const first=firstFromServer(snap,'log');
-  const have=new Set(S.log.map(e=>e.id)), inFs=new Set();
+  const have=new Set(S.log.map(e=>e.id)), inFs=new Set(), ahora=Date.now();
   for(const ch of snap.docChanges()){
     if(ch.type==='removed') continue;
     const e=ch.doc.data();
-    if(!entradaValida(e)){ reportar('Registro inválido recibido de Firestore (se ignora)',new Error(JSON.stringify(e)),'warn'); continue; }
+    if(!entradaValida(e,ahora)){ reportar('Registro inválido recibido de Firestore (se ignora)',new Error(JSON.stringify(e)),'warn'); continue; }
     inFs.add(e.id);
-    if(!have.has(e.id)&&!S.hidden[e.id]){ S.log.push({...e,up:true}); have.add(e.id); }   // lo sube a la hoja el dispositivo que lo creó
+    if(!have.has(e.id)&&!S.hidden[e.id]){ S.log.push({...soloCampos(e),up:true}); have.add(e.id); }   // lo sube a la hoja el dispositivo que lo creó
   }
   if(first){
     const ops=[];
@@ -98,7 +101,7 @@ function onFsLog(snap){
 function onFsHidden(snap){
   const first=firstFromServer(snap,'hidden');
   const inFs=new Set();
-  for(const ch of snap.docChanges()){ if(ch.type!=='removed'){ S.hidden[ch.doc.id]=1; inFs.add(ch.doc.id); } }
+  for(const ch of snap.docChanges()){ if(ch.type!=='removed'&&idValido(ch.doc.id)){ S.hidden[ch.doc.id]=1; inFs.add(ch.doc.id); } }
   if(first){ const up=Object.keys(S.hidden).filter(id=>!inFs.has(id)); if(up.length) fsHide(up.slice(0,450)); }
   S.log=S.log.filter(e=>!S.hidden[e.id]);
   save(); render();

@@ -6,18 +6,18 @@ import { hasToken, pendingCount } from '../../estado/almacenamiento.js';
 import { fmtClock } from '../../nucleo/fechas.js';
 import { sheetUrl } from '../../adaptadores/google-sheets.js';
 import { fbListo, usuario } from '../../adaptadores/firestore.js';
-import { IC } from '../../ui/iconos.js';
+import { IC, esc } from '../../ui/iconos.js';
 import { isBusy, syncAll } from '../sincronizacion/sincronizar.js';
 import { showModal, connect, disconnect, cleanupLegacy, fbSignIn, fbSignOut } from './sesion.js';
 
 export function renderConexion(){
   const gb=document.getElementById('gcal-bar'), chip=document.getElementById('sync-chip');
   const pc=pendingCount(), lc=Object.keys(S.legacy).length;
-  const err=S.lastError?`<span class="gcal-err">${S.lastError}</span>`:'';
+  const err=S.lastError?`<span class="gcal-err">${esc(S.lastError)}</span>`:'';   // texto de Google/Firebase: siempre escapado
   const busy=isBusy(), fbUser=usuario();
   document.getElementById('topbar').classList.toggle('on',busy);
   const rt=!fbListo()?'':fbUser
-    ?`<br><span class="rt-on">${IC.bolt}Tiempo real · ${fbUser.email||''}</span> · <button class="gcal-link" id="btn-fb-out">Salir</button>`
+    ?`<br><span class="rt-on">${IC.bolt}Tiempo real · ${esc(fbUser.email)}</span> · <button class="gcal-link" id="btn-fb-out">Salir</button>`
     :`<br><button class="gcal-link" id="btn-fb-in">${IC.bolt}Activar tiempo real</button>`;
   if(hasToken()){
     gb.innerHTML=`<div class="gcal-ic">${IC.cal}</div>

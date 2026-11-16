@@ -62,7 +62,7 @@ export function crearGoogle(reloj,{email='yo@gmail.com'}={}){
       const ruta=u.pathname.replace('/calendar/v3','').split('/').filter(Boolean).map(decodeURIComponent);
       if(ruta[0]==='users'&&ruta[2]==='calendarList'){
         return resp(200,{items:[{id:g.email,summary:g.email,primary:true,accessRole:'owner'},
-          ...[...g.calendarios.values()].map(c=>({id:c.id,summary:c.summary,accessRole:'owner'}))]});
+          ...[...g.calendarios.values()].map(c=>({id:c.id,summary:c.summary,accessRole:'owner',...(c.dataOwner?{dataOwner:c.dataOwner}:{})}))]});   // dataOwner: calendario de otra cuenta compartido contigo
       }
       if(ruta[0]==='calendars'&&ruta.length===1&&metodo==='POST'){
         const id=g.crearCalendario(cuerpo.summary); Object.assign(g.calendarios.get(id),{timeZone:cuerpo.timeZone,description:cuerpo.description});

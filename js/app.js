@@ -21,6 +21,15 @@ import { iniciarTiempoReal } from './funcionalidades/sincronizacion/tiempo-real.
 import { readDeepLink, openNotifSheet } from './funcionalidades/avisos/enlace.js';
 
 instalarCapturaGlobal();
+// Seguridad (clickjacking): dentro de un iframe de otro sitio la app no arranca; GitHub Pages no permite
+// enviar frame-ancestors, así que se decide aquí antes de pintar o sincronizar nada.
+let enMarco; try{ enMarco=window.top!==window.self; }catch(_){ enMarco=true; }
+if(enMarco){
+  const p=document.createElement('p'), a=document.createElement('a');
+  p.style.cssText='padding:24px;font:16px system-ui'; p.textContent='Abre Office Tracker directamente: ';
+  a.href=location.origin+location.pathname; a.target='_top'; a.rel='noopener'; a.textContent='abrir la app';
+  p.append(a); document.body.replaceChildren(p);
+}else{
 // Botones y gestos fijos de la pantalla
 iniciarNavegacion();
 iniciarMarcado();
@@ -37,3 +46,4 @@ render();
 whenGIS().then(()=>{ if(S.cid) initGIS(); });
 if(hasToken()) syncAll();
 if(link) openNotifSheet(link);
+}
