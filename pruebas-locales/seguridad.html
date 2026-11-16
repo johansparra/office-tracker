@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pruebas de seguridad · Office Tracker</title>
+<style>
+  :root{--bg:#111;--fg:#eee;--mut:#9a9a9a;--ok:#39c46e;--bad:#ff5a5a;--warn:#f2b84b;--card:#1c1c1c;--line:#2c2c2c}
+  body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}
+  main{max-width:820px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:22px} h2{font-size:17px;margin:0 0 8px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0}
+  button{background:#c8102e;color:#fff;border:0;border-radius:8px;padding:8px 14px;font:inherit;cursor:pointer;margin:4px 6px 4px 0}
+  button.s{background:#333}
+  input{background:#0b0b0b;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;width:100%;box-sizing:border-box;font:inherit}
+  .log{font:13px/1.45 ui-monospace,monospace;white-space:pre-wrap;background:#0b0b0b;border-radius:8px;padding:10px;margin-top:8px;min-height:20px}
+  .ok{color:var(--ok)} .bad{color:var(--bad)} .warn{color:var(--warn)} .mut{color:var(--mut)}
+  iframe{width:100%;max-width:380px;height:520px;border:1px solid var(--line);border-radius:12px;background:#fff}
+  code{background:#0b0b0b;padding:1px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Pruebas de seguridad · Office Tracker</h1>
+  <p class="mut">Página local para confirmar con tus cuentas reales lo que el código no puede responder solo. No se sube al repositorio (<code>pruebas-locales/</code> está en <code>.gitignore</code>). Sírvela desde la raíz del repo con <code>python -m http.server 8000</code> y ábrela en <code>http://localhost:8000/pruebas-locales/seguridad.html</code>. Solo lee datos; las únicas escrituras son pruebas que las reglas nuevas deben rechazar, y si alguna entra se borra al instante.</p>
+
+  <section>
+    <h2>1. Google (Calendar y la hoja)</h2>
+    <p class="mut">Usa tu Client ID de OAuth. <code>http://localhost:8000</code> debe estar en «Orígenes de JavaScript autorizados». Pide los mismos permisos que la app.</p>
+    <input id="cid" placeholder="Client ID (….apps.googleusercontent.com)">
+    <p><button id="g-in">Conectar Google</button><button class="s" id="g-cal">Revisar calendarios</button><button class="s" id="g-hoja">Revisar quién edita la hoja</button></p>
+    <div class="log" id="g-log"></div>
+  </section>
+
+  <section>
+    <h2>2. Firebase (reglas y cuota)</h2>
+    <p class="mut">Inicia sesión con la misma cuenta que usas en «Activar tiempo real». Luego publica las reglas de <code>firestore.rules</code> (docs/FIREBASE.md, paso A5) y vuelve a probar.</p>
+    <p><button id="f-in">Iniciar sesión en Firebase</button><button class="s" id="f-reglas">Probar reglas</button><button class="s" id="f-out">Salir</button></p>
+    <div class="log" id="f-log"></div>
+  </section>
+
+  <section>
+    <h2>3. ¿Se puede meter la app en un iframe? (clickjacking)</h2>
+    <p class="mut">Con la v19 publicada verás la app funcionando dentro del marco: eso confirma el hallazgo. Con la v20 debe verse solo «Abre Office Tracker directamente». No toques nada dentro del marco.</p>
+    <p><button class="s" id="i-ver">Cargar la app publicada en un iframe</button></p>
+    <div id="i-box"></div>
+  </section>
+
+  <section>
+    <h2>4. Enlace del aviso sin código</h2>
+    <p class="mut">Con la v20 publicada, abre este enlace (fecha de prueba lejana): debe mostrar las opciones y no marcar nada. Cierra la hoja sin elegir.</p>
+    <p><a id="d-link" target="_blank" rel="noopener" style="color:#7fb2ff"></a></p>
+  </section>
+</main>
+
+<script src="https://accounts.google.com/gsi/client" async></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script type="module">
+import { FB_CONFIG } from '../js/adaptadores/firestore.js';
+const APP='https://johansparra.github.io/office-tracker/';
+const SCOPES=['https://www.googleapis.com/auth/calendar.app.created','https://www.googleapis.com/auth/calendar.calendarlist.readonly','https://www.googleapis.com/auth/drive.file'];
+const $=id=>document.getElementById(id);
+// Todo se escribe como texto (textContent): nada de lo que responde Google se interpreta como HTML
+const linea=(el,txt,cls='')=>{ const s=document.createElement('div'); if(cls) s.className=cls; s.textContent=txt; $(el).append(s); };
+const limpiar=el=>$(el).replaceChildren();
+let token=null;
+
+$('cid').value=localStorage.getItem('ot-gcal-cid')||'';
+$('d-link').href=`${APP}?d=2030-01-07&a=vacation`; $('d-link').textContent=`${APP}?d=2030-01-07&a=vacation`;
+
+// ═══ 1. Google ═══
+$('g-in').onclick=()=>{
+  const cid=$('cid').value.trim(); if(!cid) return linea('g-log','Escribe tu Client ID.','warn');
+  limpiar('g-log');
+  google.accounts.oauth2.initTokenClient({client_id:cid,scope:SCOPES.join(' '),callback:r=>{
+    if(r.error) return linea('g-log',`Error: ${r.error}`,'bad');
+    token=r.access_token; linea('g-log','Conectado. Ahora usa los botones de revisión.','ok');
+  }}).requestAccessToken();
+};
+async function api(url){ const r=await fetch(url,{headers:{Authorization:`Bearer ${token}`}}); const j=await r.json(); if(!r.ok) throw new Error(`${r.status} ${j?.error?.message||''}`); return j; }
+
+$('g-cal').onclick=async()=>{
+  if(!token) return linea('g-log','Primero «Conectar Google».','warn');
+  limpiar('g-log');
+  try{
+    const r=await api('https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=owner');
+    const prim=r.items.find(c=>c.primary)?.id;
+    linea('g-log',`Cuenta (calendario principal): ${prim}`);
+    const ot=r.items.filter(c=>c.summary==='Office Tracker');
+    linea('g-log',`Calendarios «Office Tracker» con permiso de propietario: ${ot.length}`);
+    for(const c of ot){
+      const ajeno=c.dataOwner&&c.dataOwner!==prim;
+      linea('g-log',`• ${c.id}\n  dataOwner: ${c.dataOwner||'(no viene)'} · accessRole: ${c.accessRole}\n  → ${ajeno?'AJENO: otra cuenta te lo compartió. La v19 lo adoptaría y podría borrar el tuyo; la v20 lo ignora.':'propio: la v20 lo sigue usando'}`,ajeno?'bad':'ok');
+    }
+    if(ot.length&&ot.every(c=>c.dataOwner===prim)) linea('g-log','✓ Tus calendarios propios traen dataOwner igual a tu cuenta: la corrección de la v20 los reconoce bien.','ok');
+    if(ot.some(c=>!c.dataOwner)) linea('g-log','Nota: algún calendario no trae dataOwner; la v20 lo trata como propio (igual que antes).','warn');
+    if(!ot.some(c=>c.dataOwner&&c.dataOwner!==prim)) linea('g-log','Nadie te ha compartido un «Office Tracker» ajeno: hoy el hallazgo del calendario no te afecta.','ok');
+  }catch(e){ linea('g-log',`No se pudo leer la lista: ${e.message}`,'bad'); }
+};
+
+$('g-hoja').onclick=async()=>{
+  if(!token) return linea('g-log','Primero «Conectar Google».','warn');
+  limpiar('g-log');
+  try{
+    const q=encodeURIComponent("name='Office Tracker · Historial' and trashed=false");
+    const r=await api(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,owners(emailAddress))`);
+    if(!r.files.length) return linea('g-log','Esta app (este Client ID) no ve ninguna hoja «Office Tracker · Historial».','warn');
+    for(const f of r.files){
+      linea('g-log',`Hoja ${f.id} · dueño: ${f.owners?.map(o=>o.emailAddress).join(', ')||'?'}`);
+      try{
+        const p=await api(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(f.id)}/permissions?fields=permissions(emailAddress,role,type)`);
+        const otros=p.permissions.filter(x=>x.role!=='owner'&&['writer','fileOrganizer','organizer'].includes(x.role));
+        for(const x of p.permissions) linea('g-log',`  • ${x.type} ${x.emailAddress||'(enlace)'} → ${x.role}`);
+        linea('g-log',otros.length?'⚠ Otras personas pueden EDITAR la hoja: en la v19 eso permitía inyectar HTML (XSS) en tu historial. La v20 lo bloquea.':'✓ Solo tú puedes editar la hoja: los hallazgos que dependen de la hoja hoy no te afectan.',otros.length?'bad':'ok');
+      }catch(e){ linea('g-log',`  No se pudieron leer los permisos (${e.message}). Revísalos en Drive → Compartir.`,'warn'); }
+    }
+  }catch(e){ linea('g-log',`No se pudo buscar la hoja: ${e.message}`,'bad'); }
+};
+
+// ═══ 2. Firebase ═══
+firebase.initializeApp(FB_CONFIG);
+const auth=firebase.auth(), db=firebase.firestore();
+auth.onAuthStateChanged(u=>{ limpiar('f-log'); if(u) linea('f-log',`Sesión: ${u.email} · UID: ${u.uid}\n(ese UID es el ID del documento que creas en la colección «duenos»)`,'ok'); });
+$('f-in').onclick=()=>{ const p=new firebase.auth.GoogleAuthProvider(); p.setCustomParameters({prompt:'select_account'}); auth.signInWithPopup(p).catch(e=>linea('f-log',`Error: ${e.code} ${e.message}`,'bad')); };
+$('f-out').onclick=()=>auth.signOut();
+const res=(e)=>e?.code||'ok';
+$('f-reglas').onclick=async()=>{
+  const u=auth.currentUser; if(!u) return linea('f-log','Primero inicia sesión en Firebase.','warn');
+  const base=db.collection('users').doc(u.uid);
+  linea('f-log','— Probando reglas —','mut');
+  // a) Lectura normal de la app
+  try{ await base.collection('days').limit(1).get({source:'server'}); linea('f-log','Leer tus días: permitido ✓ (la app funciona)','ok'); }
+  catch(e){ linea('f-log',`Leer tus días: ${res(e)}. Si ya publicaste las reglas nuevas, falta el documento duenos/${u.uid}.`,'bad'); }
+  // b) Colección desconocida: con las reglas viejas entra (cualquier cuenta podría llenar tu cuota así)
+  const x=base.collection('pruebas-seguridad').doc('x');
+  try{ await x.set({t:1}); linea('f-log','Escribir en una colección inventada: PERMITIDO ✗ → tus reglas son las viejas (A5 abierto). Se borra la prueba.','bad'); await x.delete().catch(()=>{}); }
+  catch(e){ linea('f-log',`Escribir en una colección inventada: rechazado ✓ (${res(e)})`,'ok'); }
+  // c) Día con un estado que la app nunca escribe
+  const d=base.collection('days').doc('2000-01-01');
+  try{ await d.set({type:'<b>x</b>',ts:1,dev:'test'}); linea('f-log','Escribir un día con estado inválido: PERMITIDO ✗ → faltan las reglas de forma. Se borra la prueba.','bad'); await d.delete().catch(()=>{}); }
+  catch(e){ linea('f-log',`Escribir un día con estado inválido: rechazado ✓ (${res(e)})`,'ok'); }
+  // d) ¿El error de Firestore repite el id del documento? (hallazgo: texto de error pintado como HTML en la v19)
+  const ID='__<b>eco</b>__';
+  try{ const b=db.batch(); b.set(base.collection('hidden').doc(ID),{ts:1,dev:'test'}); await b.commit(); linea('f-log','El id reservado se aceptó (raro). Se borra.','warn'); await base.collection('hidden').doc(ID).delete().catch(()=>{}); }
+  catch(e){ const eco=String(e.message).includes('<b>eco</b>'); linea('f-log',`Id reservado → ${e.code}: ${e.message}\n→ ${eco?'El mensaje REPITE el id: en la v19 eso se pintaba como HTML. La v20 escapa el texto y valida los ids.':'El mensaje no repite el id.'}`,eco?'warn':'ok'); }
+};
+
+// ═══ 3. Iframe ═══
+$('i-ver').onclick=()=>{ const f=document.createElement('iframe'); f.src=APP; f.title='Office Tracker en un marco'; $('i-box').replaceChildren(f); };
+</script>
+</body>
+</html>

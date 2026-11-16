@@ -1,0 +1,4 @@
+# GitHub Pages (Jekyll): lo que está en el repo pero NO se publica en el sitio.
+# pruebas-locales/ usa cuentas reales y comparte origen con la app; solo se sirve en local.
+exclude:
+  - pruebas-locales
