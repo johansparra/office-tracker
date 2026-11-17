@@ -25,7 +25,15 @@ export const buscarPorNonce=n=>gcal('GET',`${calPath()}/events?privateExtendedPr
 // Detección liviana: solo la hora de modificación de los eventos cambiados desde `cursor` (incluye borrados)
 export const cambiosDesde=cursor=>gcal('GET',`${calPath()}/events?updatedMin=${enc(cursor)}&showDeleted=true&maxResults=50&fields=${enc('items(updated)')}`);
 
-export const listarCalendarios=()=>gcal('GET','/users/me/calendarList?minAccessRole=owner&maxResults=250');
+// Todas las páginas: un «Office Tracker» en la página 2 no debe pasar por inexistente (se crearía otro)
+export async function listarCalendarios(){
+  const items=[]; let pageToken='', n=0;
+  do{
+    const r=await gcal('GET',`/users/me/calendarList?minAccessRole=owner&maxResults=250${pageToken?`&pageToken=${enc(pageToken)}`:''}`);
+    items.push(...(r?.items||[])); pageToken=r?.nextPageToken||'';
+  }while(pageToken&&++n<20);   // tope por si una respuesta repite la página
+  return {items};
+}
 export const crearCalendario=()=>gcal('POST','/calendars',{summary:CAL_NAME,timeZone:TZ,
   description:'Visitas a oficina y recordatorios diarios de Office Tracker (ScotiaTech).'});
 export const borrarCalendario=()=>gcal('DELETE',calPath());

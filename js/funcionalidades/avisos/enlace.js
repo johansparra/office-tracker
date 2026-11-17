@@ -3,15 +3,15 @@
 // ═══════════════════════════════════════════════════════════
 import { S } from '../../estado/estado.js';
 import { save, online } from '../../estado/almacenamiento.js';
-import { slotOf, RESPUESTAS, NOTA_NO_FUI } from '../../nucleo/constantes.js';
+import { slotOf, RESPUESTAS, NOTA_NO_FUI, APP_ID } from '../../nucleo/constantes.js';
 import { fromKey, fmtDay, fmtDayLong, esClave } from '../../nucleo/fechas.js';
 import { reportar } from '../../adaptadores/errores.js';
 import { buscarPorNonce } from '../../adaptadores/google-calendar.js';
 import { IC, tchip } from '../../ui/iconos.js';
 import { openSheet, closeSheet } from '../../ui/movimiento.js';
 import { render } from '../../ui/render.js';
-import { applyChange, showInfo } from '../marcar-dia/marcar.js';
-import { logChange } from '../historial/registro.js';
+import { applyChange, avisoConDeshacer } from '../marcar-dia/marcar.js';
+import { logChange, deleteLog } from '../historial/registro.js';
 import { enqueue } from '../sincronizacion/sincronizar.js';
 import { syncRemindersForDate } from './programar.js';
 
@@ -31,7 +31,8 @@ async function verifyNonce(d,n){
     try{
       const r=await buscarPorNonce(n);
       const p=r?.items?.[0]?.extendedProperties?.private;
-      if(p) return p.date===d?'ok':'bad';
+      // Solo cuenta un aviso creado por esta app: otro evento con ese «nonce» no autoriza responder con un toque
+      if(p?.kind==='reminder'&&p.appId===APP_ID) return p.date===d?'ok':'bad';
     }catch(e){ reportar('No se pudo verificar el código del aviso',e,'warn'); }
   }
   return 'unknown';
@@ -76,11 +77,12 @@ function registrar(link,v,ok){
   const meta={slot:link.slot,ref:link.nonce||'',ok};
   if(v==='none'){
     // «Hoy no fui» no cambia el día, pero cancela el aviso que quede y queda registrado
-    const cur=S.data[link.d]||null;
+    const cur=S.data[link.d]||null, antes=S.skip[link.d];
     S.skip[link.d]=true;
-    logChange({d:link.d,from:cur,to:cur,src:'notif',note:NOTA_NO_FUI,...meta});
+    const e=logChange({d:link.d,from:cur,to:cur,src:'notif',note:NOTA_NO_FUI,...meta});
     save(); render();
-    if(link.a) showInfo(`${IC.x}${NOTA_NO_FUI} <small>${fmtDay(link.d)}</small>`);
+    // Deshacer: quita la marca y oculta el registro como un borrado manual (llega a la hoja y a los otros dispositivos); los avisos se vuelven a crear
+    avisoConDeshacer(`${IC.x}${NOTA_NO_FUI} <small>${fmtDay(link.d)}</small>`,()=>{ if(!antes) delete S.skip[link.d]; deleteLog([e.id]); if(online()) enqueue(()=>syncRemindersForDate(link.d)).then(render); });
     if(online()) enqueue(()=>syncRemindersForDate(link.d)).then(render);
     return;
   }

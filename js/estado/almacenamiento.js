@@ -25,7 +25,8 @@ function limpiarDias(d){
   for(const [k,v] of Object.entries(obj(d))) if(esClave(k)&&TIPOS.includes(v)) r[k]=v; else reportar('Día descartado al leer',new Error(`${k} = ${JSON.stringify(v)}`),'warn');
   return r;
 }
-const limpiarLog=l=>{ const ahora=Date.now(); return arr(l).filter(e=>entradaValida(e,ahora)||(reportar('Registro descartado al leer',new Error(JSON.stringify(e).slice(0,300)),'warn'),false)).map(soloCampos); };
+// Los registros de ESTE dispositivo no se descartan por fecha futura: su reloj pudo estar adelantado y no se subieron aún
+const limpiarLog=l=>{ const ahora=Date.now(), dev=localStorage.getItem(LS_DEV); return arr(l).filter(e=>entradaValida(e,dev&&e?.dev===dev?null:ahora)||(reportar('Registro descartado al leer',new Error(JSON.stringify(e).slice(0,300)),'warn'),false)).map(soloCampos); };
 const limpiarOcultos=h=>Object.fromEntries(Object.keys(obj(h)).filter(idValido).map(id=>[id,1]));
 
 export function load(){

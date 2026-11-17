@@ -74,7 +74,8 @@ test('seguridad: entradaValida exige valores conocidos y textos cortos',()=>{
   assert.equal(R.entradaValida({...ok,ref:'<b>'}),false);
   assert.equal(R.entradaValida({...ok,src:'notif',ok:'ok',slot:'r10',ref:'abcdef12',note:'Hoy no fui'}),true);
   assert.equal(R.entradaValida({...ok,ts:ms('2027-01-01T00:00:00')},ms('2026-10-07T00:00:00')),false,'fecha futura (más de un día)');
-  assert.equal(R.entradaValida({...ok,ts:ms('2026-10-07T20:00:00')},ms('2026-10-07T00:00:00')),true,'reloj algo adelantado');
+  assert.equal(R.entradaValida({...ok,ts:ms('2026-10-07T00:05:00')},ms('2026-10-07T00:00:00')),true,'reloj algo adelantado');
+  assert.equal(R.entradaValida({...ok,ts:ms('2026-10-07T02:00:00')},ms('2026-10-07T00:00:00')),false,'dos horas adelante');
 });
 
 // ── Error de Google/Firebase en la tarjeta de conexión ──
@@ -131,6 +132,8 @@ test('seguridad: un registro con fecha futura no entra (ni de la hoja, ni de Fir
   const fut={id:'f1',ts:ms('2030-01-01'),d:'2026-10-09',from:null,to:'office',src:'manual',dev:'aa11'};
   let a=await app({ls:{'ot-data-v2':{v:3,data:{},log:[fut]}}});
   try{ assert.equal(a.getS().log.length,0,'al leer el dispositivo'); }finally{ a.cerrar(); }
+  a=await app({ls:{'ot-dev':'bb22','ot-data-v2':{v:3,data:{},log:[{...fut,dev:'bb22'}]}}});
+  try{ assert.equal(a.getS().log.length,1,'uno propio (reloj adelantado) no se pierde'); }finally{ a.cerrar(); }
   a=await conSesion({},({google})=>hoja(google,[fut]));
   try{ assert.equal(a.getS().log.length,0,'desde la hoja'); }finally{ a.cerrar(); }
   a=await app({conFirebase:true});

@@ -26,6 +26,7 @@ export async function ensureCalendar(){
     // Seguridad: solo calendarios de ESTA cuenta. Uno con el mismo nombre que otra persona te compartió
     // (dataOwner distinto) no se adopta, no se le copia nada y no se borra.
     found=items.filter(c=>c.summary===CAL_NAME&&!c.deleted&&(!prim||!c.dataOwner||c.dataOwner===prim)).map(c=>c.id).sort();
+    if(!prim) found=found.includes(S.calId)?[S.calId]:found.slice(0,1);   // sin cuenta conocida no se fusiona ni se borra nada
     S.account=prim||S.account;
   }catch(e){
     if(e instanceof AuthError) throw e;

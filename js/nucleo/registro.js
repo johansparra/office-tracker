@@ -22,7 +22,7 @@ export function srcText(e){
   return 'Desconocido';
 }
 // ═══ Validación (seguridad): lo que llega de la hoja, de Firestore o del dispositivo puede venir de otra persona ═══
-const SRCS=['manual','undo','calendar','notif'], OKS=['ok','bad','unknown'], DIA=864e5;
+const SRCS=['manual','undo','calendar','notif'], OKS=['ok','bad','unknown'], ADELANTO=60*60*1000;   // reloj algo adelantado (este u otro dispositivo); más que esto es un registro falso
 // Id de registro u oculto: corto, sin «/» ni «__x__» (Firestore lo usa como id de documento)
 export const idValido=id=>typeof id==='string'&&/^[A-Za-z0-9][\w-]{0,63}$/.test(id);
 const opc=(v,ok)=>v==null||ok(v);
@@ -33,7 +33,7 @@ export const soloCampos=e=>Object.fromEntries(Object.entries(e).filter(([k])=>CA
 // Un registro sirve si tiene id, día real, hora y solo valores que la app produce (origen, estados, aviso, nota) con
 // textos cortos. Con `ahora`, además se descarta una hora más de un día en el futuro (RN-23 decide por la hora).
 export function entradaValida(e,ahora){
-  return !!e&&typeof e==='object'&&idValido(e.id)&&esClave(e.d)&&Number.isFinite(e.ts)&&(ahora==null||e.ts<=ahora+DIA)
+  return !!e&&typeof e==='object'&&idValido(e.id)&&esClave(e.d)&&Number.isFinite(e.ts)&&(ahora==null||e.ts<=ahora+ADELANTO)
     &&SRCS.includes(e.src)&&opc(e.from,t=>TIPOS.includes(t))&&opc(e.to,t=>TIPOS.includes(t))
     &&opc(e.dev,v=>typeof v==='string'&&/^[\w?-]{1,16}$/.test(v))&&opc(e.ok,v=>OKS.includes(v))&&opc(e.slot,v=>!!slotOf(v))
     &&opc(e.ref,v=>typeof v==='string'&&/^[0-9a-f]{0,32}$/.test(v))&&opc(e.note,v=>v===NOTA_NO_FUI);

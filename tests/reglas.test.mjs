@@ -286,7 +286,7 @@ test('RN-18/19 responder con un toque: se registra sin abrir las opciones; con c
     assert.deepEqual([e.src,e.ok,e.note,e.slot,e.ref],['notif','ok','Hoy no fui','r10','abcdef12']);
     assert.equal(a.$('#sheet').style.display,'none','sin hoja de opciones');
     assert.ok(a.$('#toast').classList.contains('show')); assert.match(a.$('#toast-txt').innerHTML,/Hoy no fui/);
-    assert.equal(a.$('#toast-undo').hidden,true);
+    assert.equal(a.$('#toast-undo').hidden,false,'«Hoy no fui» se puede deshacer');
     assert.equal(a.w.location.search,'','la URL queda limpia');
   }finally{ a.cerrar(); }
   a=await abrir('d=2026-10-07&r=r10&n=abcdef12&a=office');
@@ -304,6 +304,31 @@ test('RN-18/19 responder con un toque: se registra sin abrir las opciones; con c
   }finally{ a.cerrar(); }
   a=await abrir('d=2026-10-07&r=r10&n=abcdef12&a=borrar');           // respuesta desconocida
   try{ assert.equal(a.getS().log.length,0); assert.ok(a.$('[data-pick="none"]')); }finally{ a.cerrar(); }
+});
+test('RN-19 «Hoy no fui» se puede deshacer: quita la marca, oculta el registro y vuelven los avisos',async()=>{
+  const a=await conSesion({url:'http://localhost:8765/?d=2026-10-08&r=r10&n=0123abcd'});
+  try{
+    const av=()=>a.google.vivos(a.getS().calId).filter(e=>e.extendedProperties?.private?.kind==='reminder'&&e.extendedProperties.private.date==='2026-10-08');
+    await a.clic('[data-pick="none"]'); await a.avanzar(100);
+    const id=a.getS().log.at(-1).id;
+    assert.equal(a.getS().skip['2026-10-08'],true); assert.equal(av().length,0);
+    assert.equal(a.$('#toast-undo').hidden,false,'desde la hoja de opciones también se puede deshacer');
+    await a.clic('#toast-undo'); await a.avanzar(6000);
+    const S=a.getS();
+    assert.equal(S.skip['2026-10-08'],undefined); assert.ok(!S.log.some(e=>e.id===id)); assert.equal(S.hidden[id],1,'oculto como un borrado manual');
+    assert.equal(av().length,2,'los avisos de ese día se vuelven a crear');
+  }finally{ a.cerrar(); }
+});
+test('RN-18 un evento con ese código que no es un aviso de esta app no verifica: se muestran las opciones',async()=>{
+  const ev=cuerpoAviso('2026-10-08','r10','abcd9999',C.slotOf('r10').title,'http://localhost:8765/'), url='http://localhost:8765/?d=2026-10-08&r=r10&n=abcd9999&a=office';
+  const ajeno={...ev,summary:'Reunión',extendedProperties:{private:{date:'2026-10-08',slot:'r10',nonce:'abcd9999'}}};   // sin kind ni appId
+  let a=await conSesion({url},[ajeno]);
+  try{
+    assert.ok(!a.getS().log.some(e=>e.src==='notif'),'el enlace no cambió nada (otro evento del calendario cuenta como oficina por RN-20, no por el enlace)');
+    assert.match(a.$('#sheet-body').innerHTML,/sin verificar/); assert.ok(a.$('[data-pick="office"]'));
+  }finally{ a.cerrar(); }
+  a=await conSesion({url},[ev]);                                     // control: el mismo evento con kind y appId sí verifica
+  try{ const e=a.getS().log.find(e=>e.src==='notif'); assert.deepEqual([e?.to,e?.ok],['office','ok']); assert.equal(a.$('#sheet').style.display,'none'); }finally{ a.cerrar(); }
 });
 test('RN-19 «Hoy no fui» llega a los otros dispositivos con el historial: no se crean ni se dejan avisos de ese día',async()=>{
   assert.deepEqual(diasNoFui([{d:'2026-10-07',note:'Hoy no fui'},{d:'2026-10-08',note:'otra'},{d:'mal',note:'Hoy no fui'}],{'2026-10-01':true}),
